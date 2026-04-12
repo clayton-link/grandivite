@@ -21,19 +21,19 @@ const C = {
 
 // Add each family's primary phone number for SMS -- digits only, no dashes
 const FAMILIES = [
-  { id: 1, name: "Paul & Danielle Clayton", color: "#2C4A3E", emails: ["pbclayton@gmail.com", "daniellezclayton@yahoo.com"],  phone: "18015550001", children: ["Paul Z.", "Benjamin", "Ruby", "Calvin", "Toby", "Samuel"] },
-  { id: 2, name: "Spencer & Kim Affleck",   color: "#E8936A", emails: ["spenceraffleck@hotmail.com", "kimaffleck@gmail.com"], phone: "18015550002", children: ["Spencer Jr.", "Russell", "James", "Andrew", "Rachel", "Abigail"] },
-  { id: 3, name: "Chris & JaCee Clayton",   color: "#8B6F47", emails: ["chrisbclayton@gmail.com", "jaceec@gmail.com"],        phone: "18015550003", children: ["Bryson", "Lily", "Landon", "Wesley", "Adalyn"] },
-  { id: 4, name: "Katie Clayton",           color: "#5B8A7A", emails: ["kkqtpie@gmail.com"],                                  phone: "18015550004", children: [] },
-  { id: 5, name: "Kyle & Elise Clayton",    color: "#C46B3A", emails: ["kandeclayton@gmail.com", "kmanclayton@gmail.com"],    phone: "18015550005", children: ["Millie", "Amy", "Daphne", "Kyle R.", "Joshua"] },
-  { id: 6, name: "Mitch & Kelsey Gill",     color: "#6B5B8A", emails: ["mitchgill22@gmail.com", "kelcgill@gmail.com"],        phone: "18015550006", children: ["Bradley", "Henry", "Anthony", "Melanie"] },
+  { id: 1, name: "Paul & Danielle Clayton", color: "#2C4A3E", emails: ["pbclayton@gmail.com", "daniellezclayton@yahoo.com"],  phone: ["18016515629", "18019136101"], children: ["Paul Z.", "Benjamin", "Ruby", "Calvin", "Toby", "Samuel"] },
+  { id: 2, name: "Spencer & Kim Affleck",   color: "#E8936A", emails: ["spenceraffleck@hotmail.com", "kimaffleck@gmail.com"], phone: ["18015992807", "18015993058"], children: ["Spencer Jr.", "Russell", "James", "Andrew", "Rachel", "Abigail"] },
+  { id: 3, name: "Chris & JaCee Clayton",   color: "#8B6F47", emails: ["chrisbclayton@gmail.com", "jaceec@gmail.com"],        phone: ["18012307075", "14358490616"], children: ["Bryson", "Lily", "Landon", "Wesley", "Adalyn"] },
+  { id: 4, name: "Katie Clayton",           color: "#5B8A7A", emails: ["kkqtpie@gmail.com"],                                  phone: "18016411554", children: [] },
+  { id: 5, name: "Kyle & Elise Clayton",    color: "#C46B3A", emails: ["kandeclayton@gmail.com", "kmanclayton@gmail.com"],    phone: ["18017079560", "18015134093"], children: ["Millie", "Amy", "Daphne", "Kyle R.", "Joshua"] },
+  { id: 6, name: "Mitch & Kelsey Gill",     color: "#6B5B8A", emails: ["mitchgill22@gmail.com", "kelcgill@gmail.com"],        phone: ["17857668338", "18016413334"], children: ["Bradley", "Henry", "Anthony", "Melanie"] },
 ];
 
 // Coordinator access -- full admin tabs, send digest, reset month
 const COORDINATOR_EMAILS = ["chrisbclayton@gmail.com", "jaceec@gmail.com", "pbclayton@gmail.com"];
 
 // Both grandparent emails + phones for digest
-const GRANDPARENTS = { emails: ["pnsleep@gmail.com", "hbeec@gmail.com"], phones: ["18015550007", "18015550008"] };
+const GRANDPARENTS = { emails: ["pnsleep@gmail.com", "hbeec@gmail.com"], phones: ["18016411684", "18014555654"] };
 const BLANK_ROW = () => ({ childName: "", eventName: "", date: "", time: "", location: "", lat: null, lng: null, importance: "", notes: "" });
 
 // Resolve a signed-in Google email to a role + family
