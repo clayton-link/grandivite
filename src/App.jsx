@@ -1091,7 +1091,8 @@ export default function ClaytonLink() {
         <p style={{ color: C.green, margin: 0, lineHeight: 1.8, fontSize: 15 }}>This page lives at <strong>claytonlink.com</strong> — bookmark it!<br /><strong>Questions? Just call or text the family. 💚</strong></p>
       </div>
     </div>
-  );
+    );
+  };
 
   // ── SHELL ─────────────────────────────────────────────────────────────────
   return (
