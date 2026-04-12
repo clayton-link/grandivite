@@ -33,7 +33,7 @@ const FAMILIES = [
 ];
 
 // Coordinator access — full admin tabs, send digest, reset month
-const COORDINATOR_EMAILS = ["chrisbclayton@gmail.com", "jaceec@gmail.com", "pbclayton@gmail.com"];
+const COORDINATOR_EMAILS = ["chrisbclayton@gmail.com", "jaceec@gmail.com", "pbclayton@gmail.com", "kelcgill@gmail.com"];
 
 // Both grandparent emails — digest goes to both
 const GRANDPARENTS = { emails: ["pnsleep@gmail.com", "hbeec@gmail.com"], phones: ["18016411684", "18014555654"] };
@@ -753,19 +753,27 @@ export default function ClaytonLink() {
     : [{ n: 2, label: "Submit Events" }, { n: 5, label: "📅 Family Calendar" }];
 
   // ── STEP 1 ────────────────────────────────────────────────────────────────
-  const Step1 = () => (
+  const Step1 = () => {
+    const w = getWindowDates();
+    return (
     <div>
       <h2 style={{ ...serif, fontSize: 28, color: C.green, margin: "0 0 6px" }}>Monthly Prompt</h2>
       <p style={{ color: C.muted, margin: "0 0 24px", lineHeight: 1.6 }}>Send the monthly request to all families.</p>
-      <div style={{ ...card, backgroundColor: C.green, color: C.white, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
-        <div>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "1px", opacity: 0.65, marginBottom: 4 }}>CURRENT CYCLE</div>
-          <div style={{ ...serif, fontSize: 26, fontWeight: 600 }}>{cycle?.month_label || "—"}</div>
-          <div style={{ fontSize: 13, opacity: 0.8, marginTop: 4 }}>{cycle?.start_date} – {cycle?.end_date}</div>
+      <div style={{ ...card, backgroundColor: C.green, color: C.white }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12, marginBottom: 16 }}>
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "1px", opacity: 0.65, marginBottom: 4 }}>SENDING TODAY</div>
+            <div style={{ ...serif, fontSize: 22, fontWeight: 600 }}>{w.monthLabel}</div>
+            <div style={{ fontSize: 13, opacity: 0.8, marginTop: 4 }}>Events window: {w.windowLabel}</div>
+          </div>
+          <div style={{ textAlign: "right" }}>
+            <div style={{ fontSize: 11, opacity: 0.65, marginBottom: 4, fontWeight: 700, letterSpacing: "1px" }}>IDEAL NOTICE</div>
+            <div style={{ ...serif, fontSize: 18, fontWeight: 600 }}>30 days</div>
+            <div style={{ fontSize: 12, opacity: 0.8 }}>Min: 14 days ({w.min14Label})</div>
+          </div>
         </div>
-        <div style={{ textAlign: "right" }}>
-          <div style={{ fontSize: 11, opacity: 0.65, marginBottom: 4, fontWeight: 700, letterSpacing: "1px" }}>DEADLINE</div>
-          <div style={{ ...serif, fontSize: 22, fontWeight: 600 }}>{cycle?.deadline || "—"}</div>
+        <div style={{ backgroundColor: "rgba(255,255,255,0.12)", borderRadius: 10, padding: "10px 14px", fontSize: 13, lineHeight: 1.6 }}>
+          💡 Ask families to submit events happening between <strong>today</strong> and <strong>{w.max30Label}</strong>. Nana and Papa need at least 14 days notice — ideally 30.
         </div>
       </div>
       <div style={card}>
@@ -783,7 +791,8 @@ export default function ClaytonLink() {
               <Btn variant="outline" style={{ padding: "6px 14px", fontSize: 12 }} onClick={() => {
                 const pending = familiesWithStatus.filter(f => !f.submitted).map(f => f.emails[0]).join(",");
                 const subject = encodeURIComponent("Reminder — Clayton Link Events Due Soon");
-                const body    = encodeURIComponent(`Hey! Quick reminder to submit your family events on claytonlink.com. Deadline: ${cycle?.deadline}. Thanks!`);
+                const w3 = getWindowDates();
+              const body    = encodeURIComponent(`Hey! Quick reminder to submit your upcoming family events on claytonlink.com. We need events through ${w3.max30Label} — at least 14 days notice for Nana and Papa. Thanks!`);
                 window.open(`mailto:${pending}?subject=${subject}&body=${body}`);
                 setReminderSent(true);
               }}>{reminderSent ? "✓ Email Sent" : "📧 Nudge via Email"}</Btn>
@@ -795,13 +804,14 @@ export default function ClaytonLink() {
       <div style={card}>
         <h3 style={{ ...serif, fontSize: 18, margin: "0 0 16px" }}>Message Preview</h3>
         <div style={{ backgroundColor: C.cream, borderRadius: 10, padding: 20, borderLeft: `4px solid ${C.terra}`, fontStyle: "italic", color: C.text, lineHeight: 1.8, fontSize: 14 }}>
-          "Hey family — it's that time! Log into <strong style={{ fontStyle: "normal" }}>claytonlink.com</strong> and submit up to 2 events per child for {cycle?.month_label}. Deadline: {cycle?.deadline}!"
+          {(() => { const w = getWindowDates(); return `"Hey family — it's that time! Log into claytonlink.com and submit events happening between now and ${w.max30Label}. Nana and Papa need at least 14 days notice — ideally 30. Up to 2 per child!"`; })()}
         </div>
         <div style={{ marginTop: 16, display: "flex", gap: 10, flexWrap: "wrap" }}>
           <Btn variant={promptSent ? "outline" : "accent"} onClick={() => {
             const emails  = FAMILIES.map(f => f.emails[0]).join(",");
-            const subject = encodeURIComponent(`Clayton Link — ${cycle?.month_label} Events Due ${cycle?.deadline}`);
-            const body    = encodeURIComponent(`Hey family!\n\nTime to submit your ${cycle?.month_label} events on Clayton Link.\n\nUp to 2 per child — deadline ${cycle?.deadline}.\nhttps://claytonlink.com\n\nLove, Chris & JaCee`);
+            const w2 = getWindowDates();
+            const subject = encodeURIComponent(`Clayton Link — Please Submit Your Upcoming Events`);
+            const body    = encodeURIComponent(`Hey family!\n\nTime to submit your upcoming events on Clayton Link.\n\nPlease include events happening between now and ${w2.max30Label}. Nana and Papa need at least 14 days notice — 30 is ideal.\n\nUp to 2 events per child.\nhttps://claytonlink.com\n\nLove, Chris & JaCee`);
             window.open(`mailto:${emails}?subject=${subject}&body=${body}`);
             setPromptSent(true);
           }}>{promptSent ? "✓ Prompt Sent" : "📧 Send via Email"}</Btn>
@@ -809,7 +819,8 @@ export default function ClaytonLink() {
         </div>
       </div>
     </div>
-  );
+    );
+  };
 
   // ── STEP 2 ────────────────────────────────────────────────────────────────
   const Step2 = () => {
@@ -818,7 +829,7 @@ export default function ClaytonLink() {
     return (
       <div>
         <h2 style={{ ...serif, fontSize: 28, color: C.green, margin: "0 0 6px" }}>Submit Your Events</h2>
-        <p style={{ color: C.muted, margin: "0 0 24px", lineHeight: 1.6 }}>{fam ? `Hi ${firstName}! ` : ""}Submit up to 2 events per child for {cycle?.month_label}.</p>
+        <p style={{ color: C.muted, margin: "0 0 24px", lineHeight: 1.6 }}>{fam ? `Hi ${firstName}! ` : ""}{(() => { const w = getWindowDates(); return `Submit up to 2 events per child happening in the next 30 days (through ${w.max30Label}). Nana and Papa need at least 14 days notice.`; })()}</p>
 
         {myEvents.length > 0 && (
           <div style={card}>
