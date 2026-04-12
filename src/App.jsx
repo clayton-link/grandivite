@@ -2,12 +2,16 @@ import { useState, useEffect, useRef } from "react";
 import { createClient } from "@supabase/supabase-js";
 
 // ── SUPABASE CONFIG ───────────────────────────────────────────────────────────
-const SUPABASE_URL      = import.meta.env.VITE_SUPABASE_URL;
+// Get these from: supabase.com → your project → Settings → API
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ── GOOGLE MAPS CONFIG ────────────────────────────────────────────────────────
+// Get from: console.cloud.google.com → APIs & Services → Credentials
+// Enable: "Places API (New)" and "Maps JavaScript API" for this key
+// Restrict key to your domain (claytonlink.com) for security
 const GOOGLE_MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_KEY;
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -19,20 +23,19 @@ const C = {
   muted: "#7A7A7A", border: "#E8E0D6", red: "#C0392B", redLight: "#FDECEA",
 };
 
-// Add each family's primary phone number for SMS -- digits only, no dashes
 const FAMILIES = [
-  { id: 1, name: "Paul & Danielle Clayton", color: "#2C4A3E", emails: ["pbclayton@gmail.com", "daniellezclayton@yahoo.com"],  phone: ["18016515629", "18019136101"], children: ["Paul Z.", "Benjamin", "Ruby", "Calvin", "Toby", "Samuel"] },
-  { id: 2, name: "Spencer & Kim Affleck",   color: "#E8936A", emails: ["spenceraffleck@hotmail.com", "kimaffleck@gmail.com"], phone: ["18015992807", "18015993058"], children: ["Spencer Jr.", "Russell", "James", "Andrew", "Rachel", "Abigail"] },
-  { id: 3, name: "Chris & JaCee Clayton",   color: "#8B6F47", emails: ["chrisbclayton@gmail.com", "jaceec@gmail.com"],        phone: ["18012307075", "14358490616"], children: ["Bryson", "Lily", "Landon", "Wesley", "Adalyn"] },
+  { id: 1, name: "Paul & Danielle Clayton", color: "#2C4A3E", emails: ["pbclayton@gmail.com", "daniellezclayton@yahoo.com"],  phone: "18016515629", children: ["Paul Z.", "Benjamin", "Ruby", "Calvin", "Toby", "Samuel"] },
+  { id: 2, name: "Spencer & Kim Affleck",   color: "#E8936A", emails: ["spenceraffleck@hotmail.com", "kimaffleck@gmail.com"], phone: "18015992807", children: ["Spencer Jr.", "Russell", "James", "Andrew", "Rachel", "Abigail"] },
+  { id: 3, name: "Chris & JaCee Clayton",   color: "#8B6F47", emails: ["chrisbclayton@gmail.com", "jaceec@gmail.com"],        phone: "18012307075", children: ["Bryson", "Lily", "Landon", "Wesley", "Adalyn"] },
   { id: 4, name: "Katie Clayton",           color: "#5B8A7A", emails: ["kkqtpie@gmail.com"],                                  phone: "18016411554", children: [] },
-  { id: 5, name: "Kyle & Elise Clayton",    color: "#C46B3A", emails: ["kandeclayton@gmail.com", "kmanclayton@gmail.com"],    phone: ["18017079560", "18015134093"], children: ["Millie", "Amy", "Daphne", "Kyle R.", "Joshua"] },
-  { id: 6, name: "Mitch & Kelsey Gill",     color: "#6B5B8A", emails: ["mitchgill22@gmail.com", "kelcgill@gmail.com"],        phone: ["17857668338", "18016413334"], children: ["Bradley", "Henry", "Anthony", "Melanie"] },
+  { id: 5, name: "Kyle & Elise Clayton",    color: "#C46B3A", emails: ["kandeclayton@gmail.com", "kmanclayton@gmail.com"],    phone: "18017079560", children: ["Millie", "Amy", "Daphne", "Kyle R.", "Joshua"] },
+  { id: 6, name: "Mitch & Kelsey Gill",     color: "#6B5B8A", emails: ["mitchgill22@gmail.com", "kelcgill@gmail.com"],        phone: "17857668338", children: ["Bradley", "Henry", "Anthony", "Melanie"] },
 ];
 
-// Coordinator access -- full admin tabs, send digest, reset month
+// Coordinator access — full admin tabs, send digest, reset month
 const COORDINATOR_EMAILS = ["chrisbclayton@gmail.com", "jaceec@gmail.com", "pbclayton@gmail.com"];
 
-// Both grandparent emails + phones for digest
+// Both grandparent emails — digest goes to both
 const GRANDPARENTS = { emails: ["pnsleep@gmail.com", "hbeec@gmail.com"], phones: ["18016411684", "18014555654"] };
 const BLANK_ROW = () => ({ childName: "", eventName: "", date: "", time: "", location: "", lat: null, lng: null, importance: "", notes: "" });
 
@@ -48,8 +51,8 @@ function resolveAuth(email) {
 
 // ── HELPERS ───────────────────────────────────────────────────────────────────
 function impInfo(level) {
-  if (level === 3) return { label: "1:1 Time",    stars: "⭐⭐⭐", color: C.terra, bg: C.terraLight, border: C.terraBorder, msg: "This is a chance for just you two -- it would mean everything to them." };
-  if (level === 2) return { label: "Milestone",   stars: "⭐⭐",   color: C.green, bg: C.greenLight, border: C.greenBorder, msg: "This is a once-in-a-lifetime moment -- we'd love you there." };
+  if (level === 3) return { label: "1:1 Time",    stars: "⭐⭐⭐", color: C.terra, bg: C.terraLight, border: C.terraBorder, msg: "This is a chance for just you two — it would mean everything to them." };
+  if (level === 2) return { label: "Milestone",   stars: "⭐⭐",   color: C.green, bg: C.greenLight, border: C.greenBorder, msg: "This is a once-in-a-lifetime moment — we'd love you there." };
   return              { label: "Group Event", stars: "⭐",     color: C.brown, bg: C.brownLight, border: C.brownBorder, msg: "Come cheer with the whole family!" };
 }
 
@@ -137,16 +140,28 @@ function Spinner() {
   return (
     <div style={{ minHeight: "100vh", backgroundColor: C.green, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16 }}>
       <div style={{ fontSize: 36 }}>🌿</div>
-      <div style={{ color: C.white, fontSize: 15, fontFamily: "'Lato', sans-serif", opacity: 0.8 }}>Loading Clayton Link...</div>
+      <div style={{ color: C.white, fontSize: 15, fontFamily: "'Lato', sans-serif", opacity: 0.8 }}>Loading Clayton Link…</div>
     </div>
   );
 }
 
 function EditModal({ event, onSave, onClose, familyChildren }) {
   const e = norm(event);
-  const [draft, setDraft] = useState({ childName: e.childName, eventName: e.eventName, date: e.date, time: e.time || "", location: e.location || "", importance: e.importance || "", notes: e.notes || "" });
+  const [draft, setDraft] = useState({
+    childName: e.childName,
+    eventName: e.eventName,
+    date: e.date,
+    time: e.time || "",
+    location: e.location || "",
+    lat: e.lat ?? null,
+    lng: e.lng ?? null,
+    importance: e.importance || "",
+    notes: e.notes || "",
+  });
+
   const set = (k, v) => setDraft(d => ({ ...d, [k]: v }));
   const valid = draft.childName && draft.eventName && draft.date && draft.importance;
+
   return (
     <div style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.45)", zIndex: 500, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
       <div style={{ backgroundColor: C.white, borderRadius: 20, padding: 28, width: "100%", maxWidth: 480, maxHeight: "90vh", overflowY: "auto", boxShadow: "0 24px 80px rgba(0,0,0,0.25)" }}>
@@ -154,6 +169,7 @@ function EditModal({ event, onSave, onClose, familyChildren }) {
           <h3 style={{ ...serif, fontSize: 22, margin: 0, color: C.green }}>Edit Event</h3>
           <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: C.muted }}>✕</button>
         </div>
+
         <div style={{ marginBottom: 16 }}>
           <span style={lbl}>Child's Name</span>
           {familyChildren?.length > 0 ? (
@@ -166,13 +182,28 @@ function EditModal({ event, onSave, onClose, familyChildren }) {
             <input style={inp} value={draft.childName} onChange={e => set("childName", e.target.value)} />
           )}
         </div>
-        <div style={{ marginBottom: 16 }}><span style={lbl}>Event / Activity</span><input style={inp} value={draft.eventName} onChange={e => set("eventName", e.target.value)} /></div>
-        <div style={{ marginBottom: 16 }}><span style={lbl}>Date</span><input style={{ ...inp, display: "block", width: "100%" }} type="date" value={draft.date} onChange={e => set("date", e.target.value)} /></div>
-        <div style={{ marginBottom: 16 }}><span style={lbl}>Time (Optional)</span><input style={inp} value={draft.time} onChange={e => set("time", e.target.value)} placeholder="e.g. 6:30 PM" /></div>
+
+        <div style={{ marginBottom: 16 }}>
+          <span style={lbl}>Event / Activity</span>
+          <input style={inp} value={draft.eventName} onChange={e => set("eventName", e.target.value)} />
+        </div>
+
+        <div style={{ marginBottom: 16 }}>
+          <span style={lbl}>Date</span>
+          <input style={{ ...inp, display: "block", width: "100%" }} type="date" value={draft.date} onChange={e => set("date", e.target.value)} />
+        </div>
+
+        <div style={{ marginBottom: 16 }}>
+          <span style={lbl}>Time (Optional)</span>
+          <input style={inp} value={draft.time} onChange={e => set("time", e.target.value)} placeholder="e.g. 6:30 PM" />
+        </div>
+
         <div style={{ marginBottom: 16 }}>
           <span style={lbl}>Location (Optional)</span>
           <PlacesInput
             value={draft.location}
+            lat={draft.lat}
+            lng={draft.lng}
             onChange={(label, lat, lng) => {
               set("location", label);
               set("lat", lat);
@@ -180,6 +211,7 @@ function EditModal({ event, onSave, onClose, familyChildren }) {
             }}
           />
         </div>
+
         <div style={{ marginBottom: 16 }}>
           <span style={lbl}>Priority</span>
           <select style={inp} value={draft.importance} onChange={e => set("importance", e.target.value)}>
@@ -189,7 +221,12 @@ function EditModal({ event, onSave, onClose, familyChildren }) {
             <option value="1">⭐ Group Event</option>
           </select>
         </div>
-        <div style={{ marginBottom: 24 }}><span style={lbl}>A Note for Nana & Papa (Optional)</span><textarea style={{ ...inp, resize: "vertical", minHeight: 72 }} value={draft.notes} onChange={e => set("notes", e.target.value)} /></div>
+
+        <div style={{ marginBottom: 24 }}>
+          <span style={lbl}>A Note for Nana & Papa (Optional)</span>
+          <textarea style={{ ...inp, resize: "vertical", minHeight: 72 }} value={draft.notes} onChange={e => set("notes", e.target.value)} />
+        </div>
+
         <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
           <Btn variant="ghost" onClick={onClose}>Cancel</Btn>
           <Btn variant="accent" disabled={!valid} onClick={() => { onSave({ ...event, ...draft }); onClose(); }}>Save Changes</Btn>
@@ -201,54 +238,89 @@ function EditModal({ event, onSave, onClose, familyChildren }) {
 
 
 // ── GOOGLE PLACES AUTOCOMPLETE ────────────────────────────────────────────────
-// Loads the Maps script once, then attaches autocomplete to any input ref passed in
-function usePlacesAutocomplete(inputRef, onSelect) {
-  useEffect(() => {
-    // Load script if not already present
-    const scriptId = "google-maps-script";
-    const load = () => {
-      if (window.google?.maps?.places) { attach(); return; }
-      if (document.getElementById(scriptId)) return; // already loading
-      const script = document.createElement("script");
-      script.id  = scriptId;
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_KEY}&libraries=places`;
-      script.async = true;
-      script.onload = attach;
-      document.head.appendChild(script);
-    };
+let googleMapsScriptPromise = null;
 
-    const attach = () => {
-      if (!inputRef.current || !window.google?.maps?.places) return;
-      const ac = new window.google.maps.places.Autocomplete(inputRef.current, {
-        types: ["establishment", "geocode"],
-        componentRestrictions: { country: "us" },
-        fields: ["formatted_address", "name", "geometry", "place_id"],
-      });
-      ac.addListener("place_changed", () => {
-        const place = ac.getPlace();
-        const name  = place.name || "";
-        const addr  = place.formatted_address || "";
-        // Use "Name, Address" if they differ, otherwise just address
-        const label = name && !addr.startsWith(name) ? `${name}, ${addr}` : addr;
-        const lat   = place.geometry?.location?.lat();
-        const lng   = place.geometry?.location?.lng();
-        onSelect(label, lat, lng);
-      });
-    };
+function loadGoogleMapsPlacesScript() {
+  if (window.google?.maps?.places) return Promise.resolve(window.google);
+  if (googleMapsScriptPromise) return googleMapsScriptPromise;
 
-    load();
-  }, []);
+  googleMapsScriptPromise = new Promise((resolve, reject) => {
+    const existing = document.getElementById("google-maps-script");
+
+    if (existing) {
+      existing.addEventListener("load", () => resolve(window.google));
+      existing.addEventListener("error", () => reject(new Error("Google Maps script failed to load.")));
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.id = "google-maps-script";
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_KEY}&libraries=places&loading=async`;
+    script.async = true;
+    script.defer = true;
+    script.onload = () => {
+      if (window.google?.maps?.places) resolve(window.google);
+      else reject(new Error("Google Maps loaded, but Places library was not available."));
+    };
+    script.onerror = () => reject(new Error("Google Maps script failed to load."));
+    document.head.appendChild(script);
+  });
+
+  return googleMapsScriptPromise;
 }
 
-function PlacesInput({ value, onChange, placeholder = "e.g. Heartland Elementary" }) {
-  const ref  = useRef(null);
-  const [lat, setLat] = useState(null);
-  const [lng, setLng] = useState(null);
+function usePlacesAutocomplete(inputRef, onSelect) {
+  const autocompleteRef = useRef(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    let listener = null;
+
+    async function init() {
+      try {
+        await loadGoogleMapsPlacesScript();
+
+        if (!isMounted || !inputRef.current || !window.google?.maps?.places) return;
+        if (autocompleteRef.current) return;
+
+        const ac = new window.google.maps.places.Autocomplete(inputRef.current, {
+          types: ["establishment", "geocode"],
+          componentRestrictions: { country: "us" },
+          fields: ["formatted_address", "name", "geometry", "place_id"],
+        });
+
+        autocompleteRef.current = ac;
+        listener = ac.addListener("place_changed", () => {
+          const place = ac.getPlace();
+          const name = place?.name || "";
+          const addr = place?.formatted_address || "";
+          const label = name && addr && !addr.startsWith(name) ? `${name}, ${addr}` : (addr || name);
+          const lat = place?.geometry?.location?.lat?.() ?? null;
+          const lng = place?.geometry?.location?.lng?.() ?? null;
+          onSelect(label, lat, lng, place);
+        });
+      } catch (err) {
+        console.error("Google Places init failed:", err);
+      }
+    }
+
+    init();
+
+    return () => {
+      isMounted = false;
+      if (listener?.remove) listener.remove();
+    };
+  }, [inputRef, onSelect]);
+}
+
+function PlacesInput({ value, lat, lng, onChange, placeholder = "e.g. Heartland Elementary" }) {
+  const ref = useRef(null);
 
   usePlacesAutocomplete(ref, (label, plat, plng) => {
-    setLat(plat); setLng(plng);
     onChange(label, plat, plng);
   });
+
+  const hasConfirmedLocation = lat !== null && lng !== null;
 
   return (
     <div style={{ position: "relative" }}>
@@ -257,11 +329,11 @@ function PlacesInput({ value, onChange, placeholder = "e.g. Heartland Elementary
         type="text"
         placeholder={placeholder}
         value={value}
-        onChange={e => { onChange(e.target.value, null, null); setLat(null); setLng(null); }}
-        style={{ ...inp }}
+        onChange={e => onChange(e.target.value, null, null)}
+        style={{ ...inp, paddingRight: 34 }}
         autoComplete="off"
       />
-      {lat && (
+      {hasConfirmedLocation && (
         <span style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", fontSize: 14 }} title="Location confirmed">📍</span>
       )}
     </div>
@@ -278,10 +350,14 @@ function AuthScreen() {
 
   const signInGoogle = async () => {
     setGoogleLoading(true);
-    await supabase.auth.signInWithOAuth({
+    const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: { redirectTo: window.location.origin },
     });
+    if (error) {
+      console.error("Google sign-in failed:", error);
+      setGoogleLoading(false);
+    }
   };
 
   const sendMagicLink = async () => {
@@ -353,7 +429,7 @@ function EventCard({ ev, canEdit, onEdit, onRemove, locked, isConflict = false }
     <div style={{ display: "flex", gap: 14, padding: "16px 12px", borderBottom: `1px solid ${C.border}`, alignItems: "flex-start", backgroundColor: isConflict ? "#FFFAF4" : "transparent", borderLeft: isConflict ? `4px solid ${C.terra}` : "4px solid transparent", margin: "0 -12px" }}>
       <div style={{ minWidth: 76, flexShrink: 0, backgroundColor: info.bg, color: info.color, borderRadius: 8, padding: "6px 8px", fontSize: 9, fontWeight: 700, textAlign: "center", lineHeight: 1.6 }}>{info.stars}<br />{info.label}</div>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 3 }}>{e.childName} -- {e.eventName}</div>
+        <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 3 }}>{e.childName} — {e.eventName}</div>
         <div style={{ fontSize: 12, color: C.muted, marginBottom: 2 }}>{formatDate(e.date)}{e.time ? ` · ${e.time}` : ""}</div>
         {e.location && <div style={{ fontSize: 12, marginBottom: 4 }}><a href={e.lat && e.lng ? `https://maps.apple.com/?ll=${e.lat},${e.lng}&q=${encodeURIComponent(e.location)}` : `https://maps.apple.com/?q=${encodeURIComponent(e.location)}`} target="_blank" rel="noreferrer" style={{ color: C.terra, textDecoration: "none", fontWeight: 600 }}>📍 {e.location}</a></div>}
         {e.notes && <div style={{ fontSize: 13, color: C.text, fontStyle: "italic", lineHeight: 1.5 }}>"{e.notes}"</div>}
@@ -392,7 +468,7 @@ function CalendarView({ events, rsvpMap = {} }) {
   return (
     <div>
       <h2 style={{ ...serif, fontSize: 28, color: C.green, margin: "0 0 6px" }}>Family Calendar</h2>
-      <p style={{ color: C.muted, margin: "0 0 20px", lineHeight: 1.6 }}>April 2026 -- coordinate before the digest goes to Nana and Papa.</p>
+      <p style={{ color: C.muted, margin: "0 0 20px", lineHeight: 1.6 }}>April 2026 — coordinate before the digest goes to Nana and Papa.</p>
       {events.length === 0 && <div style={{ ...card, textAlign: "center", padding: 40, color: C.muted }}>No events submitted yet.</div>}
       {overlapDays.length > 0 && (
         <div style={{ ...card, backgroundColor: C.terraLight, border: `1.5px solid ${C.terraBorder}` }}>
@@ -419,7 +495,7 @@ function CalendarView({ events, rsvpMap = {} }) {
                 {day && <>
                   <div style={{ fontSize: 11, fontWeight: 700, color: isOverlap ? C.terra : C.muted, textAlign: "right", marginBottom: 3 }}>{day}</div>
                   {dayEvs.slice(0, 2).map(ev => (
-                    <div key={ev.id} title={`${ev.childName} -- ${ev.eventName}`} style={{ backgroundColor: (famColors[ev.familyId] || C.green) + "22", color: famColors[ev.familyId] || C.green, borderLeft: `3px solid ${famColors[ev.familyId] || C.green}`, borderRadius: 4, padding: "2px 4px", fontSize: 9, fontWeight: 700, marginBottom: 2, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>
+                    <div key={ev.id} title={`${ev.childName} — ${ev.eventName}`} style={{ backgroundColor: (famColors[ev.familyId] || C.green) + "22", color: famColors[ev.familyId] || C.green, borderLeft: `3px solid ${famColors[ev.familyId] || C.green}`, borderRadius: 4, padding: "2px 4px", fontSize: 9, fontWeight: 700, marginBottom: 2, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>
                       {impInfo(ev.importance).stars} {ev.childName}
                     </div>
                   ))}
@@ -441,7 +517,7 @@ function CalendarView({ events, rsvpMap = {} }) {
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 4 }}>
-                  <span style={{ fontWeight: 700, fontSize: 14 }}>{ev.childName} -- {ev.eventName}</span>
+                  <span style={{ fontWeight: 700, fontSize: 14 }}>{ev.childName} — {ev.eventName}</span>
                   <Badge level={ev.importance} size="sm" />
                 </div>
                 {ev.location && <div style={{ fontSize: 12 }}><a href={ev.lat && ev.lng ? `https://maps.apple.com/?ll=${ev.lat},${ev.lng}&q=${encodeURIComponent(ev.location)}` : `https://maps.apple.com/?q=${encodeURIComponent(ev.location)}`} target="_blank" rel="noreferrer" style={{ color: C.terra, textDecoration: "none" }}>📍 {ev.location}</a></div>}
@@ -518,7 +594,7 @@ export default function ClaytonLink() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Real-time subscription -- all devices stay in sync automatically
+  // Real-time subscription — all devices stay in sync automatically
   useEffect(() => {
     if (!cycle?.id) return;
     const channel = supabase.channel("cl-realtime")
@@ -606,12 +682,12 @@ export default function ClaytonLink() {
       <div style={{ ...card, backgroundColor: C.green, color: C.white, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
         <div>
           <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "1px", opacity: 0.65, marginBottom: 4 }}>CURRENT CYCLE</div>
-          <div style={{ ...serif, fontSize: 26, fontWeight: 600 }}>{cycle?.month_label || "--"}</div>
-          <div style={{ fontSize: 13, opacity: 0.8, marginTop: 4 }}>{cycle?.start_date} - {cycle?.end_date}</div>
+          <div style={{ ...serif, fontSize: 26, fontWeight: 600 }}>{cycle?.month_label || "—"}</div>
+          <div style={{ fontSize: 13, opacity: 0.8, marginTop: 4 }}>{cycle?.start_date} – {cycle?.end_date}</div>
         </div>
         <div style={{ textAlign: "right" }}>
           <div style={{ fontSize: 11, opacity: 0.65, marginBottom: 4, fontWeight: 700, letterSpacing: "1px" }}>DEADLINE</div>
-          <div style={{ ...serif, fontSize: 22, fontWeight: 600 }}>{cycle?.deadline || "--"}</div>
+          <div style={{ ...serif, fontSize: 22, fontWeight: 600 }}>{cycle?.deadline || "—"}</div>
         </div>
       </div>
       <div style={card}>
@@ -628,7 +704,7 @@ export default function ClaytonLink() {
             <>
               <Btn variant="outline" style={{ padding: "6px 14px", fontSize: 12 }} onClick={() => {
                 const pending = familiesWithStatus.filter(f => !f.submitted).map(f => f.emails[0]).join(",");
-                const subject = encodeURIComponent("Reminder -- Clayton Link Events Due Soon");
+                const subject = encodeURIComponent("Reminder — Clayton Link Events Due Soon");
                 const body    = encodeURIComponent(`Hey! Quick reminder to submit your family events on claytonlink.com. Deadline: ${cycle?.deadline}. Thanks!`);
                 window.open(`mailto:${pending}?subject=${subject}&body=${body}`);
                 setReminderSent(true);
@@ -646,19 +722,19 @@ export default function ClaytonLink() {
       <div style={card}>
         <h3 style={{ ...serif, fontSize: 18, margin: "0 0 16px" }}>Message Preview</h3>
         <div style={{ backgroundColor: C.cream, borderRadius: 10, padding: 20, borderLeft: `4px solid ${C.terra}`, fontStyle: "italic", color: C.text, lineHeight: 1.8, fontSize: 14 }}>
-          "Hey family -- it's that time! Log into <strong style={{ fontStyle: "normal" }}>claytonlink.com</strong> and submit up to 2 events per child for {cycle?.month_label}. Deadline: {cycle?.deadline}!"
+          "Hey family — it's that time! Log into <strong style={{ fontStyle: "normal" }}>claytonlink.com</strong> and submit up to 2 events per child for {cycle?.month_label}. Deadline: {cycle?.deadline}!"
         </div>
         <div style={{ marginTop: 16, display: "flex", gap: 10, flexWrap: "wrap" }}>
           <Btn variant={promptSent ? "outline" : "accent"} onClick={() => {
             const emails  = FAMILIES.map(f => f.emails[0]).join(",");
-            const subject = encodeURIComponent(`Clayton Link -- ${cycle?.month_label} Events Due ${cycle?.deadline}`);
-            const body    = encodeURIComponent(`Hey family!\n\nTime to submit your ${cycle?.month_label} events on Clayton Link.\n\nUp to 2 per child -- deadline ${cycle?.deadline}.\nhttps://claytonlink.com\n\nLove, Chris & JaCee`);
+            const subject = encodeURIComponent(`Clayton Link — ${cycle?.month_label} Events Due ${cycle?.deadline}`);
+            const body    = encodeURIComponent(`Hey family!\n\nTime to submit your ${cycle?.month_label} events on Clayton Link.\n\nUp to 2 per child — deadline ${cycle?.deadline}.\nhttps://claytonlink.com\n\nLove, Chris & JaCee`);
             window.open(`mailto:${emails}?subject=${subject}&body=${body}`);
             setPromptSent(true);
           }}>{promptSent ? "✓ Prompt Sent" : "📧 Send via Email"}</Btn>
           <Btn variant="ghost" onClick={() => {
             const phones = FAMILIES.map(f => f.phone).join(",");
-            const body   = encodeURIComponent(`Hey! Time to submit your ${cycle?.month_label} events on Clayton Link -- up to 2 per child by ${cycle?.deadline}. claytonlink.com`);
+            const body   = encodeURIComponent(`Hey! Time to submit your ${cycle?.month_label} events on Clayton Link — up to 2 per child by ${cycle?.deadline}. claytonlink.com`);
             window.open(`sms:${phones}?body=${body}`);
             setPromptSent(true);
           }}>💬 Send via Text</Btn>
@@ -694,7 +770,7 @@ export default function ClaytonLink() {
         ) : (
           <>
             <div style={{ ...card, padding: 16 }}>
-              <div style={lbl}>Priority Guide -- Max 2 Events Per Child</div>
+              <div style={lbl}>Priority Guide — Max 2 Events Per Child</div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>{[3,2,1].map(l => <Badge key={l} level={l} />)}</div>
             </div>
             {formRows.map((row, i) => (
@@ -783,7 +859,7 @@ export default function ClaytonLink() {
       {conflicts.length > 0 && (
         <div style={{ ...card, backgroundColor: C.terraLight, border: `2px solid ${C.terraBorder}` }}>
           <div style={{ fontWeight: 700, color: C.terra, fontSize: 14, marginBottom: 10 }}>
-            ⚠️ {conflicts.length} Scheduling Conflict{conflicts.length > 1 ? "s" : ""} -- Review Before Sending
+            ⚠️ {conflicts.length} Scheduling Conflict{conflicts.length > 1 ? "s" : ""} — Review Before Sending
           </div>
           {conflicts.map(({ date, events: cEvs }) => (
             <div key={date} style={{ marginBottom: 10, paddingBottom: 10, borderBottom: `1px solid ${C.terraBorder}` }}>
@@ -791,7 +867,7 @@ export default function ClaytonLink() {
               {cEvs.map(ev => (
                 <div key={ev.id} style={{ fontSize: 12, color: C.text, paddingLeft: 12, marginTop: 3, display: "flex", gap: 8, alignItems: "center" }}>
                   <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: FAMILIES.find(f => f.id === ev.familyId)?.color || C.green, flexShrink: 0, display: "inline-block" }} />
-                  <span><strong>{ev.family}</strong> -- {ev.childName}: {ev.eventName}{ev.time ? ` at ${ev.time}` : ""}</span>
+                  <span><strong>{ev.family}</strong> — {ev.childName}: {ev.eventName}{ev.time ? ` at ${ev.time}` : ""}</span>
                 </div>
               ))}
             </div>
@@ -800,7 +876,7 @@ export default function ClaytonLink() {
       )}
 
       <div style={card}>
-        <h3 style={{ ...serif, fontSize: 18, margin: "0 0 4px" }}>All Events -- Sorted by Priority</h3>
+        <h3 style={{ ...serif, fontSize: 18, margin: "0 0 4px" }}>All Events — Sorted by Priority</h3>
         {!locked && <p style={{ fontSize: 13, color: C.muted, margin: "0 0 12px" }}>Events with an orange border share a date with another family.</p>}
         {events.length === 0
           ? <p style={{ color: C.muted, fontSize: 14, margin: "24px 0", textAlign: "center" }}>No events submitted yet.</p>
@@ -814,7 +890,7 @@ export default function ClaytonLink() {
               <div key={ev.id} style={{ fontSize: 13, marginBottom: 4, display: "flex", gap: 8, alignItems: "center" }}>
                 <span style={{ fontSize: 14 }}>{rsvpMap[ev.id] === "yes" ? "✓" : "◎"}</span>
                 <span style={{ color: rsvpMap[ev.id] === "yes" ? C.green : C.terra, fontWeight: 700 }}>{rsvpMap[ev.id] === "yes" ? "Confirmed" : "Maybe"}</span>
-                <span style={{ color: C.muted }}>--</span>
+                <span style={{ color: C.muted }}>—</span>
                 <span>{ev.childName}: {ev.eventName} · {formatShort(ev.date)}</span>
               </div>
             ))}
@@ -837,10 +913,10 @@ export default function ClaytonLink() {
             ? <>
                 <Btn variant="outline" onClick={() => setStep(4)}>Preview Nana & Papa View</Btn>
                 <Btn variant="accent" onClick={() => {
-                  const subject = encodeURIComponent(`The Family's ${cycle?.month_label} Highlights -- Clayton Link`);
+                  const subject = encodeURIComponent(`The Family's ${cycle?.month_label} Highlights — Clayton Link`);
                   const lines   = sortedEvents.map(ev => {
                     const imp = ev.importance === 3 ? "⭐⭐⭐ 1:1 Time" : ev.importance === 2 ? "⭐⭐ Milestone" : "⭐ Group Event";
-                    return `${imp}\n${ev.childName} -- ${ev.eventName}\n${formatDate(ev.date)}${ev.time ? " · " + ev.time : ""}${ev.location ? "\n📍 " + ev.location : ""}${ev.notes ? `\n"${ev.notes}"` : ""}\n`;
+                    return `${imp}\n${ev.childName} — ${ev.eventName}\n${formatDate(ev.date)}${ev.time ? " · " + ev.time : ""}${ev.location ? "\n📍 " + ev.location : ""}${ev.notes ? `\n"${ev.notes}"` : ""}\n`;
                   }).join("\n");
                   const body    = encodeURIComponent(`Hi Nana and Papa!\n\nHere's what's coming up in ${cycle?.month_label}. We love you!\n\n${lines}\nFull page: https://claytonlink.com\n\nLove, The Clayton Family`);
                   window.open(`mailto:${GRANDPARENTS.emails.join(",")}?subject=${subject}&body=${body}`);
@@ -852,7 +928,7 @@ export default function ClaytonLink() {
                   handleDigest();
                 }}>💬 Text Nana & Papa</Btn>
               </>
-            : <div style={{ backgroundColor: C.greenLight, border: `1px solid ${C.green}`, borderRadius: 10, padding: "14px 20px", fontSize: 14, color: C.green, fontWeight: 700 }}>✓ Digest sent to Nana and Papa -- {cycle?.month_label} · claytonlink.com</div>
+            : <div style={{ backgroundColor: C.greenLight, border: `1px solid ${C.green}`, borderRadius: 10, padding: "14px 20px", fontSize: 14, color: C.green, fontWeight: 700 }}>✓ Digest sent to Nana and Papa — {cycle?.month_label} · claytonlink.com</div>
         }
       </div>
     </div>
@@ -897,7 +973,7 @@ export default function ClaytonLink() {
               )}
               {rsvpMap[ev.id] === "maybe" && (
                 <div style={{ flex: 1, padding: "10px 14px", borderRadius: 10, backgroundColor: C.terraLight, border: `2px solid ${C.terra}`, color: C.terra, fontWeight: 700, fontSize: 13, textAlign: "center" }}>
-                  ◎ Maybe -- we'll try! <button onClick={() => setRsvp(ev.id, null)} style={{ background: "none", border: "none", color: C.muted, fontSize: 11, cursor: "pointer", marginLeft: 8 }}>change</button>
+                  ◎ Maybe — we'll try! <button onClick={() => setRsvp(ev.id, null)} style={{ background: "none", border: "none", color: C.muted, fontSize: 11, cursor: "pointer", marginLeft: 8 }}>change</button>
                 </div>
               )}
             </div>
@@ -906,7 +982,7 @@ export default function ClaytonLink() {
       })}
 
       <div style={{ ...card, textAlign: "center", backgroundColor: C.greenLight, border: `1.5px solid ${C.green}` }}>
-        <p style={{ color: C.green, margin: 0, lineHeight: 1.8, fontSize: 15 }}>This page lives at <strong>claytonlink.com</strong> -- bookmark it!<br /><strong>Questions? Just call or text the family. 💚</strong></p>
+        <p style={{ color: C.green, margin: 0, lineHeight: 1.8, fontSize: 15 }}>This page lives at <strong>claytonlink.com</strong> — bookmark it!<br /><strong>Questions? Just call or text the family. 💚</strong></p>
       </div>
     </div>
   );
