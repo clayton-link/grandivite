@@ -58,6 +58,84 @@ function impInfo(level) {
 
 const formatDate  = d => d ? new Date(d + "T12:00:00").toLocaleDateString("en-US", { weekday: "long",  month: "long",  day: "numeric" }) : "";
 const formatShort = d => d ? new Date(d + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "";
+
+// Generate and download an .ics calendar file for a single event
+function addToCalendar(ev) {
+  const e = norm(ev);
+  const dateStr = e.date.replace(/-/g, "");
+  // Parse time or default to all-day
+  let dtStart, dtEnd;
+  if (e.time) {
+    const [timePart, meridiem] = e.time.split(" ");
+    let [hours, minutes] = timePart.split(":").map(Number);
+    if (meridiem?.toLowerCase() === "pm" && hours !== 12) hours += 12;
+    if (meridiem?.toLowerCase() === "am" && hours === 12) hours = 0;
+    const hh = String(hours).padStart(2, "0");
+    const mm = String(minutes || 0).padStart(2, "0");
+    dtStart = `${dateStr}T${hh}${mm}00`;
+    // Default 1 hour duration
+    const endHours = String(hours + 1).padStart(2, "0");
+    dtEnd = `${dateStr}T${endHours}${mm}00`;
+  } else {
+    dtStart = dateStr;
+    dtEnd = dateStr;
+  }
+  const isAllDay = !e.time;
+  const dtProp = isAllDay ? `DTSTART;VALUE=DATE:${dtStart}\nDTEND;VALUE=DATE:${dtEnd}` : `DTSTART:${dtStart}\nDTEND:${dtEnd}`;
+  const location = e.location ? `LOCATION:${e.location}` : "";
+  const description = e.notes ? `DESCRIPTION:${e.notes}` : "";
+  const ics = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//Clayton Link//EN",
+    "BEGIN:VEVENT",
+    `UID:${e.id}@claytonlink.com`,
+    dtProp,
+    `SUMMARY:${e.childName}'s ${e.eventName}`,
+    location,
+    description,
+    "END:VEVENT",
+    "END:VCALENDAR"
+  ].filter(Boolean).join("\n");
+  const blob = new Blob([ics], { type: "text/calendar;charset=utf-8" });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement("a");
+  a.href     = url;
+  a.download = `${e.childName}-${e.eventName}.ics`.replace(/[^a-z0-9.-]/gi, "-");
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// Open Google Calendar event creation page with event pre-filled
+function addToGoogleCalendar(ev) {
+  const e = norm(ev);
+  const dateStr = e.date.replace(/-/g, "");
+  let dates;
+  if (e.time) {
+    const [timePart, meridiem] = e.time.split(" ");
+    let [hours, minutes] = timePart.split(":").map(Number);
+    if (meridiem?.toLowerCase() === "pm" && hours !== 12) hours += 12;
+    if (meridiem?.toLowerCase() === "am" && hours === 12) hours = 0;
+    const hh  = String(hours).padStart(2, "0");
+    const mm  = String(minutes || 0).padStart(2, "0");
+    const ehh = String(hours + 1).padStart(2, "0");
+    dates = `${dateStr}T${hh}${mm}00/${dateStr}T${ehh}${mm}00`;
+  } else {
+    // All day — end date is next day
+    const next = new Date(e.date + "T12:00:00");
+    next.setDate(next.getDate() + 1);
+    const nextStr = next.toISOString().slice(0,10).replace(/-/g,"");
+    dates = `${dateStr}/${nextStr}`;
+  }
+  const params = new URLSearchParams({
+    action:   "TEMPLATE",
+    text:     `${e.childName}'s ${e.eventName}`,
+    dates,
+    details:  e.notes || `From Clayton Link — claytonlink.com`,
+    location: e.location || "",
+  });
+  window.open(`https://calendar.google.com/calendar/r/eventedit?${params.toString()}`, "_blank");
+}
 const serif = { fontFamily: "'Playfair Display', serif" };
 const card  = { backgroundColor: C.white, borderRadius: 16, padding: 24, boxShadow: "0 2px 20px rgba(44,74,62,0.07)", border: `1px solid ${C.border}`, marginBottom: 16 };
 const inp   = { width: "100%", padding: "10px 14px", borderRadius: 8, border: `1.5px solid ${C.border}`, fontFamily: "'Lato', sans-serif", fontSize: 14, color: C.text, backgroundColor: C.white, outline: "none", boxSizing: "border-box" };
@@ -925,8 +1003,36 @@ export default function ClaytonLink() {
   );
 
   // ── STEP 4 (Nana & Papa view) ─────────────────────────────────────────────
-  const Step4 = () => (
-    <div>
+  const Step4 = () => {
+    const confirmedEvents = sortedEvents.filter(ev => rsvpMap[ev.id] === "yes");
+    return (
+      <div>
+      {confirmedEvents.length > 0 && (
+        <div style={{ ...card, backgroundColor: C.greenLight, border: `1.5px solid ${C.green}`, marginBottom: 16 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10, marginBottom: 12 }}>
+            <h3 style={{ ...serif, fontSize: 18, color: C.green, margin: 0 }}>📅 Your Confirmed Events</h3>
+            <a href="https://calendar.google.com" target="_blank" rel="noreferrer" style={{ fontSize: 12, fontWeight: 700, color: C.green, textDecoration: "none", padding: "6px 14px", border: `1.5px solid ${C.green}`, borderRadius: 8, whiteSpace: "nowrap" }}>
+              View My Calendar →
+            </a>
+          </div>
+          {confirmedEvents.map(ev => (
+            <div key={ev.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${C.greenBorder}`, flexWrap: "wrap", gap: 8 }}>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 14, color: C.text }}>{ev.childName}'s {ev.eventName}</div>
+                <div style={{ fontSize: 12, color: C.muted }}>{formatDate(ev.date)}{ev.time ? ` · ${ev.time}` : ""}</div>
+              </div>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                <button onClick={() => addToGoogleCalendar(ev)} style={{ padding: "6px 12px", borderRadius: 8, border: `1.5px solid ${C.green}`, backgroundColor: C.white, color: C.green, fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: "'Lato', sans-serif", whiteSpace: "nowrap" }}>
+                  + Google Calendar
+                </button>
+                <button onClick={() => addToCalendar(ev)} style={{ padding: "6px 12px", borderRadius: 8, border: `1.5px solid ${C.muted}`, backgroundColor: C.white, color: C.muted, fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: "'Lato', sans-serif", whiteSpace: "nowrap" }}>
+                  + Apple Calendar
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
       <div style={{ backgroundColor: C.green, borderRadius: 20, padding: "36px 24px", textAlign: "center", color: C.white, marginBottom: 24 }}>
         <div style={{ fontSize: 36, marginBottom: 12 }}>🌿</div>
         <h2 style={{ ...serif, fontSize: 30, margin: "0 0 10px", fontWeight: 700 }}>Hi Nana and Papa!</h2>
@@ -957,8 +1063,18 @@ export default function ClaytonLink() {
                 </>
               )}
               {rsvpMap[ev.id] === "yes" && (
-                <div style={{ flex: 1, padding: "10px 14px", borderRadius: 10, backgroundColor: C.greenLight, border: `2px solid ${C.green}`, color: C.green, fontWeight: 700, fontSize: 13, textAlign: "center" }}>
-                  ✓ You're coming! <button onClick={() => setRsvp(ev.id, null)} style={{ background: "none", border: "none", color: C.muted, fontSize: 11, cursor: "pointer", marginLeft: 8 }}>change</button>
+                <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 8 }}>
+                  <div style={{ padding: "10px 14px", borderRadius: 10, backgroundColor: C.greenLight, border: `2px solid ${C.green}`, color: C.green, fontWeight: 700, fontSize: 13, textAlign: "center" }}>
+                    ✓ You're coming! <button onClick={() => setRsvp(ev.id, null)} style={{ background: "none", border: "none", color: C.muted, fontSize: 11, cursor: "pointer", marginLeft: 8 }}>change</button>
+                  </div>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    <button onClick={() => addToGoogleCalendar(ev)} style={{ flex: 1, padding: "10px 14px", borderRadius: 10, border: `1.5px solid ${C.green}`, backgroundColor: C.white, color: C.green, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'Lato', sans-serif" }}>
+                      📅 Google Calendar
+                    </button>
+                    <button onClick={() => addToCalendar(ev)} style={{ flex: 1, padding: "10px 14px", borderRadius: 10, border: `1.5px solid ${C.muted}`, backgroundColor: C.white, color: C.muted, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'Lato', sans-serif" }}>
+                      📅 Apple Calendar
+                    </button>
+                  </div>
                 </div>
               )}
               {rsvpMap[ev.id] === "maybe" && (
