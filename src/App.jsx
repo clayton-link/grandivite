@@ -206,6 +206,13 @@ const db = {
     await supabase.from("events").delete().eq("cycle_id", cycleId);
     await supabase.from("cycles").update({ locked: false, digest_sent: false }).eq("id", cycleId);
   },
+  fetchSettings: async () => {
+    const { data } = await supabase.from("settings").select("auto_nudge_enabled").eq("id", 1).single();
+    return data;
+  },
+  updateSettings: async (fields) => {
+    await supabase.from("settings").update(fields).eq("id", 1);
+  },
 };
 
 // ── UI PRIMITIVES ─────────────────────────────────────────────────────────────
@@ -640,6 +647,7 @@ export default function ClaytonLink() {
   const [formSubmitted, setFormSubmitted] = useState(false);
   const [promptSent, setPromptSent]       = useState(false);
   const [reminderSent, setReminderSent]   = useState(false);
+  const [autoNudge, setAutoNudge]         = useState(true);
 
   // Font load
   useEffect(() => {
@@ -667,6 +675,8 @@ export default function ClaytonLink() {
         setEvents(evs);
         setRsvpMap(rvps);
       }
+      const settings = await db.fetchSettings();
+      if (settings != null) setAutoNudge(settings.auto_nudge_enabled);
       setLoading(false);
     })();
 
@@ -828,6 +838,35 @@ export default function ClaytonLink() {
           }}>{promptSent ? "✓ Prompt Sent" : "📧 Send via Email"}</Btn>
 
         </div>
+      </div>
+      <div style={{ ...card, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div>
+          <div style={{ fontWeight: 700, fontSize: 14, color: C.text }}>Auto Monthly Prompt</div>
+          <div style={{ fontSize: 12, color: C.muted, marginTop: 3 }}>
+            {autoNudge
+              ? "Cron job emails all families on the 1st of each month."
+              : "Auto email is paused — send manually above."}
+          </div>
+        </div>
+        <button
+          onClick={async () => {
+            const next = !autoNudge;
+            setAutoNudge(next);
+            await db.updateSettings({ auto_nudge_enabled: next });
+          }}
+          style={{
+            width: 52, height: 28, borderRadius: 14, border: "none", cursor: "pointer",
+            backgroundColor: autoNudge ? C.green : C.border,
+            position: "relative", flexShrink: 0, transition: "background-color 0.2s",
+          }}
+        >
+          <span style={{
+            position: "absolute", top: 3, left: autoNudge ? 26 : 4,
+            width: 22, height: 22, borderRadius: "50%", backgroundColor: C.white,
+            transition: "left 0.2s", display: "block",
+            boxShadow: "0 1px 4px rgba(0,0,0,0.2)",
+          }} />
+        </button>
       </div>
     </div>
   );

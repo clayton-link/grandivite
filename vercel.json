@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/send-nudge",
+      "schedule": "0 15 1 * *"
+    }
+  ]
+}
