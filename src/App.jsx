@@ -709,12 +709,7 @@ export default function ClaytonLink() {
                 window.open(`mailto:${pending}?subject=${subject}&body=${body}`);
                 setReminderSent(true);
               }}>{reminderSent ? "✓ Email Sent" : "📧 Nudge via Email"}</Btn>
-              <Btn variant="ghost" style={{ padding: "6px 14px", fontSize: 12 }} onClick={() => {
-                const pendingPhones = familiesWithStatus.filter(f => !f.submitted).map(f => f.phone).join(",");
-                const body = encodeURIComponent(`Reminder: submit your family events on claytonlink.com by ${cycle?.deadline}!`);
-                window.open(`sms:${pendingPhones}?body=${body}`);
-                setReminderSent(true);
-              }}>💬 Nudge via Text</Btn>
+
             </>
           )}
         </div>
@@ -732,12 +727,7 @@ export default function ClaytonLink() {
             window.open(`mailto:${emails}?subject=${subject}&body=${body}`);
             setPromptSent(true);
           }}>{promptSent ? "✓ Prompt Sent" : "📧 Send via Email"}</Btn>
-          <Btn variant="ghost" onClick={() => {
-            const phones = FAMILIES.map(f => f.phone).join(",");
-            const body   = encodeURIComponent(`Hey! Time to submit your ${cycle?.month_label} events on Clayton Link — up to 2 per child by ${cycle?.deadline}. claytonlink.com`);
-            window.open(`sms:${phones}?body=${body}`);
-            setPromptSent(true);
-          }}>💬 Send via Text</Btn>
+
         </div>
       </div>
     </div>
@@ -922,11 +912,11 @@ export default function ClaytonLink() {
                   window.open(`mailto:${GRANDPARENTS.emails.join(",")}?subject=${subject}&body=${body}`);
                   handleDigest();
                 }}>📧 Email Digest</Btn>
-                <Btn variant="outline" onClick={() => {
+                <Btn variant="outline" title="Opens Messages to Nana and Papa only" onClick={() => {
                   const body = encodeURIComponent(`Hi Nana and Papa! 🌿 The family's ${cycle?.month_label} highlights are ready -- tap to see what's coming up and RSVP! claytonlink.com`);
                   window.open(`sms:${GRANDPARENTS.phones.join(",")}?body=${body}`);
                   handleDigest();
-                }}>💬 Text Nana & Papa</Btn>
+                }}>💬 Text Nana & Papa Directly</Btn>
               </>
             : <div style={{ backgroundColor: C.greenLight, border: `1px solid ${C.green}`, borderRadius: 10, padding: "14px 20px", fontSize: 14, color: C.green, fontWeight: 700 }}>✓ Digest sent to Nana and Papa — {cycle?.month_label} · claytonlink.com</div>
         }
