@@ -2,17 +2,13 @@ import { useState, useEffect, useRef } from "react";
 import { createClient } from "@supabase/supabase-js";
 
 // ── SUPABASE CONFIG ───────────────────────────────────────────────────────────
-// Get these from: supabase.com → your project → Settings → API
-const SUPABASE_URL      = "https://YOUR_PROJECT_ID.supabase.co";
-const SUPABASE_ANON_KEY = "YOUR_ANON_PUBLIC_KEY";
+const SUPABASE_URL      = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ── GOOGLE MAPS CONFIG ────────────────────────────────────────────────────────
-// Get from: console.cloud.google.com → APIs & Services → Credentials
-// Enable: "Places API (New)" and "Maps JavaScript API" for this key
-// Restrict key to your domain (claytonlink.com) for security
-const GOOGLE_MAPS_KEY = "YOUR_GOOGLE_MAPS_API_KEY";
+const GOOGLE_MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_KEY;
 // ─────────────────────────────────────────────────────────────────────────────
 
 const C = {
