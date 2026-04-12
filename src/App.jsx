@@ -629,19 +629,21 @@ export default function ClaytonLink() {
         <div style={{ marginTop: 16, display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
           <span style={{ fontSize: 13, color: C.muted }}>{familiesWithStatus.filter(f => f.submitted).length} of {FAMILIES.length} submitted</span>
           {familiesWithStatus.some(f => !f.submitted) && (
-            <Btn variant="outline" style={{ padding: "6px 14px", fontSize: 12 }} onClick={() => {
-              const pending = familiesWithStatus.filter(f => !f.submitted).map(f => f.emails[0]).join(",");
-              const subject = encodeURIComponent("Reminder -- Clayton Link Events Due Soon");
-              const body    = encodeURIComponent(`Hey! Quick reminder to submit your family events on claytonlink.com. Deadline: ${cycle?.deadline}. Thanks!`);
-              window.open(`mailto:${pending}?subject=${subject}&body=${body}`);
-              setReminderSent(true);
-            }}>{reminderSent ? "✓ Email Sent" : "📧 Nudge via Email"}</Btn>
-            <Btn variant="ghost" style={{ padding: "6px 14px", fontSize: 12 }} onClick={() => {
-              const pendingPhones = familiesWithStatus.filter(f => !f.submitted).map(f => f.phone).join(",");
-              const body = encodeURIComponent(`Reminder: submit your family events on claytonlink.com by ${cycle?.deadline}!`);
-              window.open(`sms:${pendingPhones}?body=${body}`);
-              setReminderSent(true);
-            }}>💬 Nudge via Text</Btn>
+            <>
+              <Btn variant="outline" style={{ padding: "6px 14px", fontSize: 12 }} onClick={() => {
+                const pending = familiesWithStatus.filter(f => !f.submitted).map(f => f.emails[0]).join(",");
+                const subject = encodeURIComponent("Reminder -- Clayton Link Events Due Soon");
+                const body    = encodeURIComponent(`Hey! Quick reminder to submit your family events on claytonlink.com. Deadline: ${cycle?.deadline}. Thanks!`);
+                window.open(`mailto:${pending}?subject=${subject}&body=${body}`);
+                setReminderSent(true);
+              }}>{reminderSent ? "✓ Email Sent" : "📧 Nudge via Email"}</Btn>
+              <Btn variant="ghost" style={{ padding: "6px 14px", fontSize: 12 }} onClick={() => {
+                const pendingPhones = familiesWithStatus.filter(f => !f.submitted).map(f => f.phone).join(",");
+                const body = encodeURIComponent(`Reminder: submit your family events on claytonlink.com by ${cycle?.deadline}!`);
+                window.open(`sms:${pendingPhones}?body=${body}`);
+                setReminderSent(true);
+              }}>💬 Nudge via Text</Btn>
+            </>
           )}
         </div>
       </div>
