@@ -59,6 +59,18 @@ function impInfo(level) {
 const formatDate  = d => d ? new Date(d + "T12:00:00").toLocaleDateString("en-US", { weekday: "long",  month: "long",  day: "numeric" }) : "";
 const formatShort = d => d ? new Date(d + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "";
 
+function getWindowDates() {
+  const today = new Date();
+  const min14 = new Date(today); min14.setDate(today.getDate() + 14);
+  const max30 = new Date(today); max30.setDate(today.getDate() + 30);
+  return {
+    monthLabel:  today.toLocaleDateString("en-US", { month: "long",  year: "numeric" }),
+    windowLabel: `${today.toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${max30.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`,
+    min14Label:  min14.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+    max30Label:  max30.toLocaleDateString("en-US", { month: "long",  day: "numeric" }),
+  };
+}
+
 // Generate and download an .ics calendar file for a single event
 function addToCalendar(ev) {
   const e = norm(ev);
