@@ -1102,7 +1102,7 @@ export default function ClaytonLink() {
           event={editingEvent}
           onSave={saveEdit}
           onClose={() => setEditingEvent(null)}
-          familyChildren={isCoord ? [] : auth.family?.children}
+          familyChildren={FAMILIES.find(f => f.id === (editingEvent?.family_id || editingEvent?.familyId))?.children || []}
         />
       )}
       <div style={{ backgroundColor: C.white, borderBottom: `1px solid ${C.border}`, padding: "14px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 100, boxShadow: "0 2px 12px rgba(44,74,62,0.07)" }}>
