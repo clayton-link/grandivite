@@ -153,6 +153,16 @@ function addToGoogleCalendar(ev) {
 }
 const serif = { fontFamily: "'Playfair Display', serif" };
 const card  = { backgroundColor: C.white, borderRadius: 16, padding: 24, boxShadow: "0 2px 20px rgba(44,74,62,0.07)", border: `1px solid ${C.border}`, marginBottom: 16 };
+
+function useIsMobile(breakpoint = 540) {
+  const [mob, setMob] = useState(() => typeof window !== "undefined" && window.innerWidth < breakpoint);
+  useEffect(() => {
+    const fn = () => setMob(window.innerWidth < breakpoint);
+    window.addEventListener("resize", fn);
+    return () => window.removeEventListener("resize", fn);
+  }, [breakpoint]);
+  return mob;
+}
 const inp   = { width: "100%", padding: "10px 14px", borderRadius: 8, border: `1.5px solid ${C.border}`, fontFamily: "'Lato', sans-serif", fontSize: 14, color: C.text, backgroundColor: C.white, outline: "none", boxSizing: "border-box" };
 const lbl   = { display: "block", fontSize: 11, fontWeight: 700, letterSpacing: "0.8px", color: C.muted, textTransform: "uppercase", marginBottom: 6 };
 
@@ -258,6 +268,7 @@ function Spinner() {
 }
 
 function EditModal({ event, onSave, onClose, familyChildren }) {
+  const isMobile = useIsMobile();
   const e = norm(event);
   const [draft, setDraft] = useState({
     childName: e.childName,
@@ -276,7 +287,7 @@ function EditModal({ event, onSave, onClose, familyChildren }) {
 
   return (
     <div style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.45)", zIndex: 500, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
-      <div style={{ backgroundColor: C.white, borderRadius: 20, padding: 28, width: "100%", maxWidth: 480, maxHeight: "90vh", overflowY: "auto", boxShadow: "0 24px 80px rgba(0,0,0,0.25)" }}>
+      <div style={{ backgroundColor: C.white, borderRadius: 20, padding: isMobile ? 18 : 28, width: "100%", maxWidth: 480, maxHeight: "90vh", overflowY: "auto", boxShadow: "0 24px 80px rgba(0,0,0,0.25)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
           <h3 style={{ ...serif, fontSize: 22, margin: 0, color: C.green }}>Edit Event</h3>
           <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: C.muted }}>✕</button>
@@ -565,6 +576,7 @@ function EventCard({ ev, canEdit, onEdit, onRemove, locked, isConflict = false }
 }
 
 function CalendarView({ events, rsvpMap = {} }) {
+  const isMobile = useIsMobile();
   const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const famColors = Object.fromEntries(FAMILIES.map(f => [f.id, f.color]));
   const byDay = {};
@@ -603,12 +615,12 @@ function CalendarView({ events, rsvpMap = {} }) {
             const dayEvs = day ? (byDay[day] || []) : [];
             const isOverlap = day && overlapDays.includes(day);
             return (
-              <div key={i} style={{ minHeight: 68, borderRadius: 8, padding: "4px 3px", backgroundColor: day ? (isOverlap ? C.terraLight : C.cream) : "transparent", border: day ? `1.5px solid ${isOverlap ? C.terraBorder : C.border}` : "none", opacity: day ? 1 : 0 }}>
+              <div key={i} style={{ minHeight: isMobile ? 44 : 68, borderRadius: 8, padding: isMobile ? "3px 2px" : "4px 3px", backgroundColor: day ? (isOverlap ? C.terraLight : C.cream) : "transparent", border: day ? `1.5px solid ${isOverlap ? C.terraBorder : C.border}` : "none", opacity: day ? 1 : 0 }}>
                 {day && <>
                   <div style={{ fontSize: 11, fontWeight: 700, color: isOverlap ? C.terra : C.muted, textAlign: "right", marginBottom: 3 }}>{day}</div>
                   {dayEvs.slice(0, 2).map(ev => (
-                    <div key={ev.id} title={`${ev.childName} — ${ev.eventName}`} style={{ backgroundColor: (famColors[ev.familyId] || C.green) + "22", color: famColors[ev.familyId] || C.green, borderLeft: `3px solid ${famColors[ev.familyId] || C.green}`, borderRadius: 4, padding: "2px 4px", fontSize: 9, fontWeight: 700, marginBottom: 2, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>
-                      {impInfo(ev.importance).stars} {ev.childName}
+                    <div key={ev.id} title={`${ev.childName} — ${ev.eventName}`} style={{ backgroundColor: (famColors[ev.familyId] || C.green) + "22", color: famColors[ev.familyId] || C.green, borderLeft: `3px solid ${famColors[ev.familyId] || C.green}`, borderRadius: 4, padding: "2px 3px", fontSize: isMobile ? 7 : 9, fontWeight: 700, marginBottom: 2, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>
+                      {isMobile ? impInfo(ev.importance).stars.slice(0, 1) : impInfo(ev.importance).stars} {isMobile ? "" : ev.childName}
                     </div>
                   ))}
                   {dayEvs.length > 2 && <div style={{ fontSize: 9, color: C.muted, fontWeight: 700 }}>+{dayEvs.length - 2}</div>}
@@ -664,6 +676,7 @@ export default function ClaytonLink() {
   const [reminderSent, setReminderSent]   = useState(false);
   const [autoNudge, setAutoNudge]         = useState(true);
   const [familyRsvpMap, setFamilyRsvpMap] = useState({});
+  const isMobile = useIsMobile();
 
   // Font load
   useEffect(() => {
@@ -928,7 +941,7 @@ export default function ClaytonLink() {
             {formRows.map((row, i) => (
               <div key={i} style={card}>
                 <h3 style={{ ...serif, fontSize: 18, margin: "0 0 20px" }}>New Event {formRows.length > 1 ? i + 1 : ""}</h3>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
+                <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 16, marginBottom: 16 }}>
                   <div>
                     <span style={lbl}>Child's Name</span>
                     {fam && fam.children?.length > 0 ? (
@@ -952,7 +965,7 @@ export default function ClaytonLink() {
                 </div>
                 <div style={{ marginBottom: 16 }}><span style={lbl}>Date</span><input style={{ ...inp, display: "block", width: "100%" }} type="date" value={row.date} onChange={e => updateRow(i, "date", e.target.value)} /></div>
                 <div style={{ marginBottom: 16 }}><span style={lbl}>Time (Optional)</span><input style={{ ...inp, display: "block", width: "100%" }} type="text" placeholder="e.g. 6:30 PM" value={row.time} onChange={e => updateRow(i, "time", e.target.value)} /></div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
+                <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 16, marginBottom: 16 }}>
                   <div>
                     <span style={lbl}>Location (Optional)</span>
                     <PlacesInput
@@ -985,7 +998,7 @@ export default function ClaytonLink() {
               return (
                 <>
                   {missingPriority && <p style={{ fontSize: 12, color: C.terra, margin: "0 0 8px", fontWeight: 700 }}>⚠️ Select a Priority for each event before submitting.</p>}
-                  <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                  <div style={{ display: "flex", gap: 12, flexWrap: "wrap", flexDirection: isMobile ? "column" : "row" }}>
                     <Btn variant="outline" onClick={() => setFormRows(r => [...r, BLANK_ROW()])}>+ Add Another Event</Btn>
                     <Btn variant="accent" disabled={!hasValid} onClick={handleSubmit}>Submit Our Events →</Btn>
                   </div>
@@ -1069,13 +1082,13 @@ export default function ClaytonLink() {
       <h2 style={{ ...serif, fontSize: 28, color: C.green, margin: "0 0 6px" }}>Compile & Send</h2>
       <p style={{ color: C.muted, margin: "0 0 24px", lineHeight: 1.6 }}>Review, edit, or remove events. Then lock and send to Nana and Papa.</p>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 16 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: isMobile ? 8 : 12, marginBottom: 16 }}>
         {[{ label: "Events",      v: events.length },
           { label: "Families In", v: familiesWithStatus.filter(f => f.submitted).length },
           { label: "Pending",     v: familiesWithStatus.filter(f => !f.submitted).length }
         ].map((s, i) => (
-          <div key={i} style={{ ...card, textAlign: "center", padding: 20, marginBottom: 0 }}>
-            <div style={{ ...serif, fontSize: 34, color: C.green, fontWeight: 700 }}>{s.v}</div>
+          <div key={i} style={{ ...card, textAlign: "center", padding: isMobile ? 12 : 20, marginBottom: 0 }}>
+            <div style={{ ...serif, fontSize: isMobile ? 26 : 34, color: C.green, fontWeight: 700 }}>{s.v}</div>
             <div style={{ fontSize: 10, color: C.muted, marginTop: 4, fontWeight: 700, letterSpacing: "0.6px", textTransform: "uppercase" }}>{s.label}</div>
           </div>
         ))}
@@ -1132,7 +1145,7 @@ export default function ClaytonLink() {
         </div>
       )}
 
-      <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", flexDirection: isMobile ? "column" : "row" }}>
         {!locked
           ? <Btn variant="primary" disabled={events.length === 0} onClick={handleLock}>Lock Calendar</Btn>
           : !digestSent
@@ -1191,7 +1204,7 @@ export default function ClaytonLink() {
           ))}
         </div>
       )}
-      <div style={{ backgroundColor: C.green, borderRadius: 20, padding: "36px 24px", textAlign: "center", color: C.white, marginBottom: 24 }}>
+      <div style={{ backgroundColor: C.green, borderRadius: 20, padding: isMobile ? "24px 16px" : "36px 24px", textAlign: "center", color: C.white, marginBottom: 24 }}>
         <div style={{ fontSize: 36, marginBottom: 12 }}>🌿</div>
         <h2 style={{ ...serif, fontSize: 30, margin: "0 0 10px", fontWeight: 700 }}>Hi Nana and Papa!</h2>
         <p style={{ margin: "0 0 16px", opacity: 0.88, fontSize: 15, lineHeight: 1.7 }}>Here's what's coming up with the family this month.<br />We love you and we'd love to share these moments with you.</p>
@@ -1201,7 +1214,7 @@ export default function ClaytonLink() {
       {sortedEvents.map(ev => {
         const info = impInfo(ev.importance);
         return (
-          <div key={ev.id} style={{ ...card, borderLeft: `5px solid ${info.color}`, padding: "22px 24px" }}>
+          <div key={ev.id} style={{ ...card, borderLeft: `5px solid ${info.color}`, padding: isMobile ? "16px 14px" : "22px 24px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
               <Badge level={ev.importance} size="sm" />
               <span style={{ fontSize: 13, color: C.muted }}>{formatDate(ev.date)}</span>
@@ -1282,13 +1295,15 @@ export default function ClaytonLink() {
           familyChildren={FAMILIES.find(f => f.id === (editingEvent?.family_id || editingEvent?.familyId))?.children || []}
         />
       )}
-      <div style={{ backgroundColor: C.white, borderBottom: `1px solid ${C.border}`, padding: "14px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 100, boxShadow: "0 2px 12px rgba(44,74,62,0.07)" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <span style={{ ...serif, fontSize: 20, color: C.green, fontWeight: 700 }}>Clayton Link</span>
-          <span style={{ fontSize: 11, color: C.muted, letterSpacing: "0.5px", fontWeight: 700 }}>CLAYTONLINK.COM</span>
+      <div style={{ backgroundColor: C.white, borderBottom: `1px solid ${C.border}`, padding: `12px ${isMobile ? 14 : 24}px`, display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 100, boxShadow: "0 2px 12px rgba(44,74,62,0.07)", gap: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+          <span style={{ ...serif, fontSize: isMobile ? 17 : 20, color: C.green, fontWeight: 700 }}>Clayton Link</span>
+          {!isMobile && <span style={{ fontSize: 11, color: C.muted, letterSpacing: "0.5px", fontWeight: 700 }}>CLAYTONLINK.COM</span>}
         </div>
-        <span style={{ fontSize: 12, color: C.muted, marginRight: 4 }}>{googleUser?.email}</span>
-        <Btn variant="ghost" style={{ padding: "6px 12px", fontSize: 12 }} onClick={async () => { await supabase.auth.signOut(); setAuth(null); setGoogleUser(null); }}>Sign Out</Btn>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+          {!isMobile && <span style={{ fontSize: 12, color: C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 200 }}>{googleUser?.email}</span>}
+          <Btn variant="ghost" style={{ padding: "6px 12px", fontSize: 12, flexShrink: 0 }} onClick={async () => { await supabase.auth.signOut(); setAuth(null); setGoogleUser(null); }}>Sign Out</Btn>
+        </div>
       </div>
       <div style={{ backgroundColor: C.white, borderBottom: `1px solid ${C.border}`, display: "flex", overflowX: "auto" }}>
         {TABS.map(s => (
@@ -1297,7 +1312,7 @@ export default function ClaytonLink() {
           </button>
         ))}
       </div>
-      <div style={{ maxWidth: 700, margin: "0 auto", padding: "28px 20px 72px" }}>
+      <div style={{ maxWidth: 700, margin: "0 auto", padding: isMobile ? "16px 12px 80px" : "28px 20px 72px" }}>
         {step === 1 && Step1()}
         {step === 2 && Step2()}
         {step === 3 && Step3()}
