@@ -1014,22 +1014,45 @@ export default function ClaytonLink() {
                         <div style={{ fontSize: 11, color: famColor, fontWeight: 700, marginTop: 2 }}>{ev.family.toUpperCase()}</div>
                       </div>
                     </div>
-                    {!myRsvp && (
-                      <div style={{ display: "flex", gap: 8 }}>
-                        <button onClick={() => setFamilyRsvp(ev.id, "yes")}   style={{ flex: 1, padding: "8px 12px", borderRadius: 8, border: `1.5px solid ${C.green}`, backgroundColor: C.white, color: C.green, fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: "'Lato', sans-serif" }}>✓ We'll be there!</button>
-                        <button onClick={() => setFamilyRsvp(ev.id, "maybe")} style={{ flex: 1, padding: "8px 12px", borderRadius: 8, border: `1.5px solid ${C.terra}`, backgroundColor: C.white, color: C.terra, fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: "'Lato', sans-serif" }}>◎ Maybe</button>
-                      </div>
-                    )}
-                    {myRsvp === "yes" && (
-                      <div style={{ padding: "8px 12px", borderRadius: 8, backgroundColor: C.greenLight, border: `1.5px solid ${C.green}`, color: C.green, fontWeight: 700, fontSize: 12, textAlign: "center" }}>
-                        ✓ You're going! <button onClick={() => setFamilyRsvp(ev.id, null)} style={{ background: "none", border: "none", color: C.muted, fontSize: 11, cursor: "pointer", marginLeft: 8 }}>change</button>
-                      </div>
-                    )}
-                    {myRsvp === "maybe" && (
-                      <div style={{ padding: "8px 12px", borderRadius: 8, backgroundColor: C.terraLight, border: `1.5px solid ${C.terra}`, color: C.terra, fontWeight: 700, fontSize: 12, textAlign: "center" }}>
-                        ◎ Maybe! <button onClick={() => setFamilyRsvp(ev.id, null)} style={{ background: "none", border: "none", color: C.muted, fontSize: 11, cursor: "pointer", marginLeft: 8 }}>change</button>
-                      </div>
-                    )}
+                    {(() => {
+                      const [cy, cm, cd] = ev.date.split("-").map(Number);
+                      const gcalDay = `https://calendar.google.com/calendar/r/day/${cy}/${cm}/${cd}`;
+                      const calBtns = (
+                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                          <button onClick={() => addToGoogleCalendar(ev)} style={{ flex: 1, padding: "8px 12px", borderRadius: 8, border: `1.5px solid ${C.green}`, backgroundColor: C.white, color: C.green, fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: "'Lato', sans-serif" }}>📅 Google Calendar</button>
+                          <button onClick={() => addToCalendar(ev)}       style={{ flex: 1, padding: "8px 12px", borderRadius: 8, border: `1.5px solid ${C.muted}`, backgroundColor: C.white, color: C.muted, fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: "'Lato', sans-serif" }}>📅 Apple Calendar</button>
+                        </div>
+                      );
+                      return (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                          {!myRsvp && (
+                            <>
+                              <a href={gcalDay} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: C.muted, textDecoration: "none", fontWeight: 600 }}>📅 Check your calendar →</a>
+                              <div style={{ display: "flex", gap: 8 }}>
+                                <button onClick={() => setFamilyRsvp(ev.id, "yes")}   style={{ flex: 1, padding: "8px 12px", borderRadius: 8, border: `1.5px solid ${C.green}`, backgroundColor: C.white, color: C.green, fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: "'Lato', sans-serif" }}>✓ We'll be there!</button>
+                                <button onClick={() => setFamilyRsvp(ev.id, "maybe")} style={{ flex: 1, padding: "8px 12px", borderRadius: 8, border: `1.5px solid ${C.terra}`, backgroundColor: C.white, color: C.terra, fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: "'Lato', sans-serif" }}>◎ Maybe</button>
+                              </div>
+                            </>
+                          )}
+                          {myRsvp === "yes" && (
+                            <>
+                              <div style={{ padding: "8px 12px", borderRadius: 8, backgroundColor: C.greenLight, border: `1.5px solid ${C.green}`, color: C.green, fontWeight: 700, fontSize: 12, textAlign: "center" }}>
+                                ✓ You're going! <button onClick={() => setFamilyRsvp(ev.id, null)} style={{ background: "none", border: "none", color: C.muted, fontSize: 11, cursor: "pointer", marginLeft: 8 }}>change</button>
+                              </div>
+                              {calBtns}
+                            </>
+                          )}
+                          {myRsvp === "maybe" && (
+                            <>
+                              <div style={{ padding: "8px 12px", borderRadius: 8, backgroundColor: C.terraLight, border: `1.5px solid ${C.terra}`, color: C.terra, fontWeight: 700, fontSize: 12, textAlign: "center" }}>
+                                ◎ Maybe! <button onClick={() => setFamilyRsvp(ev.id, null)} style={{ background: "none", border: "none", color: C.muted, fontSize: 11, cursor: "pointer", marginLeft: 8 }}>change</button>
+                              </div>
+                              {calBtns}
+                            </>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
                 );
               })}
@@ -1190,34 +1213,45 @@ export default function ClaytonLink() {
             </div>
             {ev.notes && <div style={{ padding: "12px 16px", backgroundColor: C.cream, borderRadius: 10, fontSize: 14, color: C.text, lineHeight: 1.7, fontStyle: "italic", marginBottom: 14 }}>"{ev.notes}"</div>}
             <div style={{ padding: "10px 16px", backgroundColor: info.bg, borderRadius: 10, fontSize: 13, color: info.color, fontWeight: 700, borderLeft: `3px solid ${info.color}`, marginBottom: 12 }}>💚 {info.msg}</div>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              {!rsvpMap[ev.id] && (
-                <>
-                  <button onClick={() => setRsvp(ev.id, "yes")}   style={{ flex: 1, padding: "10px 14px", borderRadius: 10, border: `2px solid ${C.green}`, backgroundColor: C.white, color: C.green, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'Lato', sans-serif" }}>✓ We'll be there!</button>
-                  <button onClick={() => setRsvp(ev.id, "maybe")} style={{ flex: 1, padding: "10px 14px", borderRadius: 10, border: `2px solid ${C.terra}`, backgroundColor: C.white, color: C.terra, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'Lato', sans-serif" }}>◎ Maybe</button>
-                </>
-              )}
-              {rsvpMap[ev.id] === "yes" && (
-                <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 8 }}>
-                  <div style={{ padding: "10px 14px", borderRadius: 10, backgroundColor: C.greenLight, border: `2px solid ${C.green}`, color: C.green, fontWeight: 700, fontSize: 13, textAlign: "center" }}>
-                    ✓ You're coming! <button onClick={() => setRsvp(ev.id, null)} style={{ background: "none", border: "none", color: C.muted, fontSize: 11, cursor: "pointer", marginLeft: 8 }}>change</button>
-                  </div>
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    <button onClick={() => addToGoogleCalendar(ev)} style={{ flex: 1, padding: "10px 14px", borderRadius: 10, border: `1.5px solid ${C.green}`, backgroundColor: C.white, color: C.green, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'Lato', sans-serif" }}>
-                      📅 Google Calendar
-                    </button>
-                    <button onClick={() => addToCalendar(ev)} style={{ flex: 1, padding: "10px 14px", borderRadius: 10, border: `1.5px solid ${C.muted}`, backgroundColor: C.white, color: C.muted, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'Lato', sans-serif" }}>
-                      📅 Apple Calendar
-                    </button>
-                  </div>
+            {(() => {
+              const [cy, cm, cd] = ev.date.split("-").map(Number);
+              const gcalDay = `https://calendar.google.com/calendar/r/day/${cy}/${cm}/${cd}`;
+              const calBtns = (
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <button onClick={() => addToGoogleCalendar(ev)} style={{ flex: 1, padding: "10px 14px", borderRadius: 10, border: `1.5px solid ${C.green}`, backgroundColor: C.white, color: C.green, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'Lato', sans-serif" }}>📅 Google Calendar</button>
+                  <button onClick={() => addToCalendar(ev)}       style={{ flex: 1, padding: "10px 14px", borderRadius: 10, border: `1.5px solid ${C.muted}`, backgroundColor: C.white, color: C.muted, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'Lato', sans-serif" }}>📅 Apple Calendar</button>
                 </div>
-              )}
-              {rsvpMap[ev.id] === "maybe" && (
-                <div style={{ flex: 1, padding: "10px 14px", borderRadius: 10, backgroundColor: C.terraLight, border: `2px solid ${C.terra}`, color: C.terra, fontWeight: 700, fontSize: 13, textAlign: "center" }}>
-                  ◎ Maybe — we'll try! <button onClick={() => setRsvp(ev.id, null)} style={{ background: "none", border: "none", color: C.muted, fontSize: 11, cursor: "pointer", marginLeft: 8 }}>change</button>
+              );
+              return (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {!rsvpMap[ev.id] && (
+                    <>
+                      <a href={gcalDay} target="_blank" rel="noreferrer" style={{ fontSize: 13, color: C.muted, textDecoration: "none", fontWeight: 600 }}>📅 Check your calendar →</a>
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                        <button onClick={() => setRsvp(ev.id, "yes")}   style={{ flex: 1, padding: "10px 14px", borderRadius: 10, border: `2px solid ${C.green}`, backgroundColor: C.white, color: C.green, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'Lato', sans-serif" }}>✓ We'll be there!</button>
+                        <button onClick={() => setRsvp(ev.id, "maybe")} style={{ flex: 1, padding: "10px 14px", borderRadius: 10, border: `2px solid ${C.terra}`, backgroundColor: C.white, color: C.terra, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'Lato', sans-serif" }}>◎ Maybe</button>
+                      </div>
+                    </>
+                  )}
+                  {rsvpMap[ev.id] === "yes" && (
+                    <>
+                      <div style={{ padding: "10px 14px", borderRadius: 10, backgroundColor: C.greenLight, border: `2px solid ${C.green}`, color: C.green, fontWeight: 700, fontSize: 13, textAlign: "center" }}>
+                        ✓ You're coming! <button onClick={() => setRsvp(ev.id, null)} style={{ background: "none", border: "none", color: C.muted, fontSize: 11, cursor: "pointer", marginLeft: 8 }}>change</button>
+                      </div>
+                      {calBtns}
+                    </>
+                  )}
+                  {rsvpMap[ev.id] === "maybe" && (
+                    <>
+                      <div style={{ padding: "10px 14px", borderRadius: 10, backgroundColor: C.terraLight, border: `2px solid ${C.terra}`, color: C.terra, fontWeight: 700, fontSize: 13, textAlign: "center" }}>
+                        ◎ Maybe — we'll try! <button onClick={() => setRsvp(ev.id, null)} style={{ background: "none", border: "none", color: C.muted, fontSize: 11, cursor: "pointer", marginLeft: 8 }}>change</button>
+                      </div>
+                      {calBtns}
+                    </>
+                  )}
                 </div>
-              )}
-            </div>
+              );
+            })()}
             {ev.importance <= 2 && (() => {
               const attending = Object.entries(familyRsvpMap[ev.id] || {})
                 .filter(([, s]) => s === "yes")
