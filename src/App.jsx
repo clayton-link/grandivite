@@ -1297,8 +1297,8 @@ export default function ClaytonLink() {
       )}
       <div style={{ backgroundColor: C.white, borderBottom: `1px solid ${C.border}`, padding: `12px ${isMobile ? 14 : 24}px`, display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 100, boxShadow: "0 2px 12px rgba(44,74,62,0.07)", gap: 8 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-          <span style={{ ...serif, fontSize: isMobile ? 17 : 20, color: C.green, fontWeight: 700 }}>Clayton Link</span>
-          {!isMobile && <span style={{ fontSize: 11, color: C.muted, letterSpacing: "0.5px", fontWeight: 700 }}>CLAYTONLINK.COM</span>}
+          <span style={{ ...serif, fontSize: isMobile ? 17 : 20, color: C.green, fontWeight: 700, whiteSpace: "nowrap" }}>Clayton Link</span>
+          {!isMobile && <span style={{ fontSize: 11, color: C.muted, letterSpacing: "0.5px", fontWeight: 700, whiteSpace: "nowrap" }}>CLAYTONLINK.COM</span>}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
           {!isMobile && <span style={{ fontSize: 12, color: C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 200 }}>{googleUser?.email}</span>}
