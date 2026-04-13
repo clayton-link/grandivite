@@ -209,6 +209,25 @@ const db = {
     await supabase.from("events").delete().eq("cycle_id", cycleId);
     await supabase.from("cycles").update({ locked: false, digest_sent: false }).eq("id", cycleId);
   },
+  fetchSettings: async () => {
+    const { data } = await supabase.from("settings").select("auto_nudge_enabled").eq("id", 1).single();
+    return data;
+  },
+  updateSettings: async (fields) => {
+    await supabase.from("settings").update(fields).eq("id", 1);
+  },
+  fetchFamilyRsvps: async () => {
+    const { data } = await supabase.from("family_rsvps").select("*");
+    return (data || []).reduce((acc, r) => {
+      if (!acc[r.event_id]) acc[r.event_id] = {};
+      acc[r.event_id][r.family_id] = r.status;
+      return acc;
+    }, {});
+  },
+  upsertFamilyRsvp: async (eventId, familyId, status) => {
+    if (!status) { await supabase.from("family_rsvps").delete().eq("event_id", eventId).eq("family_id", familyId); }
+    else { await supabase.from("family_rsvps").upsert({ event_id: eventId, family_id: familyId, status, updated_at: new Date().toISOString() }, { onConflict: "event_id,family_id" }); }
+  },
 };
 
 // ── UI PRIMITIVES ─────────────────────────────────────────────────────────────
@@ -643,6 +662,8 @@ export default function ClaytonLink() {
   const [formSubmitted, setFormSubmitted] = useState(false);
   const [promptSent, setPromptSent]       = useState(false);
   const [reminderSent, setReminderSent]   = useState(false);
+  const [autoNudge, setAutoNudge]         = useState(true);
+  const [familyRsvpMap, setFamilyRsvpMap] = useState({});
 
   // Font load
   useEffect(() => {
@@ -666,10 +687,13 @@ export default function ClaytonLink() {
       const c = await db.fetchCycle();
       if (c) {
         setCycle(c);
-        const [evs, rvps] = await Promise.all([db.fetchEvents(c.id), db.fetchRsvps()]);
+        const [evs, rvps, frvps] = await Promise.all([db.fetchEvents(c.id), db.fetchRsvps(), db.fetchFamilyRsvps()]);
         setEvents(evs);
         setRsvpMap(rvps);
+        setFamilyRsvpMap(frvps);
       }
+      const settings = await db.fetchSettings();
+      if (settings != null) setAutoNudge(settings.auto_nudge_enabled);
       setLoading(false);
     })();
 
@@ -693,6 +717,7 @@ export default function ClaytonLink() {
     const channel = supabase.channel("cl-realtime")
       .on("postgres_changes", { event: "*", schema: "public", table: "events",  filter: `cycle_id=eq.${cycle.id}` }, () => { db.fetchEvents(cycle.id).then(setEvents); })
       .on("postgres_changes", { event: "*", schema: "public", table: "rsvps"                                       }, () => { db.fetchRsvps().then(setRsvpMap); })
+      .on("postgres_changes", { event: "*", schema: "public", table: "family_rsvps"                               }, () => { db.fetchFamilyRsvps().then(setFamilyRsvpMap); })
       .on("postgres_changes", { event: "*", schema: "public", table: "cycles",  filter: `id=eq.${cycle.id}`       }, p  => { if (p.new) setCycle(p.new); })
       .subscribe();
     return () => supabase.removeChannel(channel);
@@ -724,7 +749,7 @@ export default function ClaytonLink() {
   const submittedFamilyIds = new Set(events.map(e => e.family_id || e.familyId));
   const familiesWithStatus = FAMILIES.map(f => ({ ...f, submitted: submittedFamilyIds.has(f.id) }));
   const sortedEvents       = [...events].map(norm).sort((a, b) => b.importance - a.importance || new Date(a.date) - new Date(b.date));
-  const myEvents           = isCoord ? [] : events.filter(e => (e.family_id || e.familyId) === auth.family?.id).map(norm);
+  const myEvents           = events.filter(e => (e.family_id || e.familyId) === auth.family?.id).map(norm);
 
   // Conflict detection for coordinator view
   const dateFamilyMap = {};
@@ -744,7 +769,18 @@ export default function ClaytonLink() {
     setEvents(p => p.map(ev => ev.id === updated.id ? { ...ev, child_name: e.childName, event_name: e.eventName, date: e.date, time: e.time, location: e.location, importance: parseInt(e.importance), notes: e.notes } : ev));
     await db.updateEvent(updated.id, e);
   };
-  const setRsvp  = async (eventId, status) => { setRsvpMap(p => ({ ...p, [eventId]: status })); await db.upsertRsvp(eventId, status); };
+  const setRsvp       = async (eventId, status) => { setRsvpMap(p => ({ ...p, [eventId]: status })); await db.upsertRsvp(eventId, status); };
+  const setFamilyRsvp = async (eventId, status) => {
+    const famId = auth.family?.id;
+    if (!famId) return;
+    setFamilyRsvpMap(p => {
+      const next = { ...p, [eventId]: { ...(p[eventId] || {}) } };
+      if (status) next[eventId][famId] = status;
+      else delete next[eventId][famId];
+      return next;
+    });
+    await db.upsertFamilyRsvp(eventId, famId, status);
+  };
   const handleLock   = async () => { setCycle(p => ({ ...p, locked: true }));       await db.updateCycle(cycle.id, { locked: true }); };
   const handleDigest = async () => { setCycle(p => ({ ...p, digest_sent: true }));  await db.updateCycle(cycle.id, { digest_sent: true }); };
   const handleReset  = async () => {
@@ -815,7 +851,7 @@ export default function ClaytonLink() {
           {familiesWithStatus.some(f => !f.submitted) && (
             <>
               <Btn variant="outline" style={{ padding: "6px 14px", fontSize: 12 }} onClick={() => {
-                const pending = familiesWithStatus.filter(f => !f.submitted).map(f => f.emails[0]).join(",");
+                const pending = familiesWithStatus.filter(f => !f.submitted).flatMap(f => f.emails).join(",");
                 const subject = encodeURIComponent("Reminder — Clayton Link Events Due Soon");
                 const body    = encodeURIComponent(`Hey! Quick reminder to submit your upcoming family events on claytonlink.com. We need events through ${win.max30Label} — at least 14 days notice for Nana and Papa. Thanks!`);
                 window.open(`mailto:${pending}?subject=${subject}&body=${body}`);
@@ -833,7 +869,7 @@ export default function ClaytonLink() {
         </div>
         <div style={{ marginTop: 16, display: "flex", gap: 10, flexWrap: "wrap" }}>
           <Btn variant={promptSent ? "outline" : "accent"} onClick={() => {
-            const emails  = FAMILIES.map(f => f.emails[0]).join(",");
+            const emails  = FAMILIES.flatMap(f => f.emails).join(",");
             const subject = encodeURIComponent(`Clayton Link — Please Submit Your Upcoming Events`);
             const body    = encodeURIComponent(`Hey family!\n\nTime to submit your upcoming events on Clayton Link.\n\nPlease include events happening between now and ${win.max30Label}. Nana and Papa need at least 14 days notice — 30 is ideal.\n\nUp to 2 events per child.\nhttps://claytonlink.com\n\nLove, Chris & JaCee`);
             window.open(`mailto:${emails}?subject=${subject}&body=${body}`);
@@ -841,6 +877,20 @@ export default function ClaytonLink() {
           }}>{promptSent ? "✓ Prompt Sent" : "📧 Send via Email"}</Btn>
 
         </div>
+      </div>
+      <div style={{ ...card, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div>
+          <div style={{ fontWeight: 700, fontSize: 14, color: C.text }}>Auto Monthly Prompt</div>
+          <div style={{ fontSize: 12, color: C.muted, marginTop: 3 }}>
+            {autoNudge ? "Cron job emails all families on the 1st of each month." : "Auto email is paused — send manually above."}
+          </div>
+        </div>
+        <button
+          onClick={async () => { const next = !autoNudge; setAutoNudge(next); await db.updateSettings({ auto_nudge_enabled: next }); }}
+          style={{ width: 52, height: 28, borderRadius: 14, border: "none", cursor: "pointer", backgroundColor: autoNudge ? C.green : C.border, position: "relative", flexShrink: 0, transition: "background-color 0.2s" }}
+        >
+          <span style={{ position: "absolute", top: 3, left: autoNudge ? 26 : 4, width: 22, height: 22, borderRadius: "50%", backgroundColor: C.white, transition: "left 0.2s", display: "block", boxShadow: "0 1px 4px rgba(0,0,0,0.2)" }} />
+        </button>
       </div>
     </div>
   );
@@ -929,12 +979,63 @@ export default function ClaytonLink() {
                 </div>
               </div>
             ))}
-            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-              <Btn variant="outline" onClick={() => setFormRows(r => [...r, BLANK_ROW()])}>+ Add Another Event</Btn>
-              <Btn variant="accent" onClick={handleSubmit}>Submit Our Events →</Btn>
-            </div>
+            {(() => {
+              const hasValid = formRows.some(r => r.childName && r.eventName && r.date && r.importance);
+              const missingPriority = formRows.some(r => r.childName && r.eventName && r.date && !r.importance);
+              return (
+                <>
+                  {missingPriority && <p style={{ fontSize: 12, color: C.terra, margin: "0 0 8px", fontWeight: 700 }}>⚠️ Select a Priority for each event before submitting.</p>}
+                  <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                    <Btn variant="outline" onClick={() => setFormRows(r => [...r, BLANK_ROW()])}>+ Add Another Event</Btn>
+                    <Btn variant="accent" disabled={!hasValid} onClick={handleSubmit}>Submit Our Events →</Btn>
+                  </div>
+                </>
+              );
+            })()}
           </>
         )}
+        {(() => {
+          const otherEvents = sortedEvents.filter(ev => ev.importance <= 2 && ev.familyId !== auth.family?.id);
+          if (!otherEvents.length) return null;
+          return (
+            <div style={{ ...card, marginTop: 16 }}>
+              <h3 style={{ ...serif, fontSize: 18, margin: "0 0 4px" }}>Other Family Events</h3>
+              <p style={{ fontSize: 13, color: C.muted, margin: "0 0 12px" }}>Let them know you're coming!</p>
+              {otherEvents.map(ev => {
+                const myRsvp   = familyRsvpMap[ev.id]?.[auth.family?.id];
+                const famColor = FAMILIES.find(f => f.id === ev.familyId)?.color || C.green;
+                return (
+                  <div key={ev.id} style={{ padding: "14px 0", borderBottom: `1px solid ${C.border}` }}>
+                    <div style={{ display: "flex", gap: 10, alignItems: "flex-start", marginBottom: 8 }}>
+                      <Badge level={ev.importance} size="sm" />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 700, fontSize: 14 }}>{ev.childName} — {ev.eventName}</div>
+                        <div style={{ fontSize: 12, color: C.muted }}>{formatDate(ev.date)}{ev.time ? ` · ${ev.time}` : ""}</div>
+                        <div style={{ fontSize: 11, color: famColor, fontWeight: 700, marginTop: 2 }}>{ev.family.toUpperCase()}</div>
+                      </div>
+                    </div>
+                    {!myRsvp && (
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <button onClick={() => setFamilyRsvp(ev.id, "yes")}   style={{ flex: 1, padding: "8px 12px", borderRadius: 8, border: `1.5px solid ${C.green}`, backgroundColor: C.white, color: C.green, fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: "'Lato', sans-serif" }}>✓ We'll be there!</button>
+                        <button onClick={() => setFamilyRsvp(ev.id, "maybe")} style={{ flex: 1, padding: "8px 12px", borderRadius: 8, border: `1.5px solid ${C.terra}`, backgroundColor: C.white, color: C.terra, fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: "'Lato', sans-serif" }}>◎ Maybe</button>
+                      </div>
+                    )}
+                    {myRsvp === "yes" && (
+                      <div style={{ padding: "8px 12px", borderRadius: 8, backgroundColor: C.greenLight, border: `1.5px solid ${C.green}`, color: C.green, fontWeight: 700, fontSize: 12, textAlign: "center" }}>
+                        ✓ You're going! <button onClick={() => setFamilyRsvp(ev.id, null)} style={{ background: "none", border: "none", color: C.muted, fontSize: 11, cursor: "pointer", marginLeft: 8 }}>change</button>
+                      </div>
+                    )}
+                    {myRsvp === "maybe" && (
+                      <div style={{ padding: "8px 12px", borderRadius: 8, backgroundColor: C.terraLight, border: `1.5px solid ${C.terra}`, color: C.terra, fontWeight: 700, fontSize: 12, textAlign: "center" }}>
+                        ◎ Maybe! <button onClick={() => setFamilyRsvp(ev.id, null)} style={{ background: "none", border: "none", color: C.muted, fontSize: 11, cursor: "pointer", marginLeft: 8 }}>change</button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })()}
       </div>
     );
   };
@@ -1117,6 +1218,14 @@ export default function ClaytonLink() {
                 </div>
               )}
             </div>
+            {ev.importance <= 2 && (() => {
+              const attending = Object.entries(familyRsvpMap[ev.id] || {})
+                .filter(([, s]) => s === "yes")
+                .map(([fid]) => FAMILIES.find(f => f.id === parseInt(fid))?.name.split(" & ")[0])
+                .filter(Boolean);
+              if (!attending.length) return null;
+              return <div style={{ marginTop: 10, fontSize: 13, color: C.muted }}>Also coming: <strong style={{ color: C.green }}>{attending.join(", ")}</strong></div>;
+            })()}
           </div>
         );
       })}
