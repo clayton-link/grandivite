@@ -763,13 +763,19 @@ export default function ClaytonLink() {
   const handleSubmit = async () => {
     const valid = formRows.filter(r => r.childName && r.eventName && r.date && r.importance);
     if (!valid.length) return;
+    if (!cycle) { alert("No active cycle found. Contact the coordinator."); return; }
     const fam = auth.family;
     const familyName = fam.name.split(" ").slice(0, 2).join(" ");
-    for (const row of valid) {
-      const data = await db.insertEvent(cycle.id, fam.id, familyName, row);
-      if (data) setEvents(p => [...p, data]);
+    try {
+      for (const row of valid) {
+        const data = await db.insertEvent(cycle.id, fam.id, familyName, row);
+        if (data) setEvents(p => [...p, data]);
+      }
+      setFormSubmitted(true);
+    } catch (err) {
+      console.error("Submit failed:", err);
+      alert("Something went wrong submitting your events. Please try again or contact Chris.");
     }
-    setFormSubmitted(true);
   };
   const updateRow = (i, f, v) => setFormRows(rows => rows.map((r, idx) => idx === i ? { ...r, [f]: v } : r));
 
@@ -955,10 +961,19 @@ export default function ClaytonLink() {
                 </div>
               </div>
             ))}
-            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-              <Btn variant="outline" onClick={() => setFormRows(r => [...r, BLANK_ROW()])}>+ Add Another Event</Btn>
-              <Btn variant="accent" onClick={handleSubmit}>Submit Our Events →</Btn>
-            </div>
+            {(() => {
+              const hasValid = formRows.some(r => r.childName && r.eventName && r.date && r.importance);
+              const missingPriority = formRows.some(r => r.childName && r.eventName && r.date && !r.importance);
+              return (
+                <>
+                  {missingPriority && <p style={{ fontSize: 12, color: C.terra, margin: "0 0 8px", fontWeight: 700 }}>⚠️ Select a Priority for each event before submitting.</p>}
+                  <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                    <Btn variant="outline" onClick={() => setFormRows(r => [...r, BLANK_ROW()])}>+ Add Another Event</Btn>
+                    <Btn variant="accent" disabled={!hasValid} onClick={handleSubmit}>Submit Our Events →</Btn>
+                  </div>
+                </>
+              );
+            })()}
           </>
         )}
       </div>
