@@ -43,8 +43,8 @@ const BLANK_ROW = () => ({ childName: "", eventName: "", date: "", time: "", loc
 function resolveAuth(email) {
   if (!email) return null;
   const lower = email.toLowerCase();
-  if (COORDINATOR_EMAILS.map(e => e.toLowerCase()).includes(lower)) return { role: "coordinator" };
   const family = FAMILIES.find(f => f.emails.map(e => e.toLowerCase()).includes(lower));
+  if (COORDINATOR_EMAILS.map(e => e.toLowerCase()).includes(lower)) return { role: "coordinator", family: family || null };
   if (family) return { role: "family", family };
   return null; // email not recognized
 }
@@ -760,9 +760,10 @@ export default function ClaytonLink() {
       alert("No active cycle found. Please ask the coordinator to set up the current cycle in Supabase.");
       return;
     }
-    const fam = auth.family;
-    const familyName = fam.name.split(" ").slice(0, 2).join(" ");
     try {
+      const fam = auth.family;
+      if (!fam) { alert("No family linked to your account. Contact Chris or JaCee."); return; }
+      const familyName = fam.name.split(" ").slice(0, 2).join(" ");
       for (const row of valid) {
         const data = await db.insertEvent(cycle.id, fam.id, familyName, row);
         if (data) setEvents(p => [...p, data]);
