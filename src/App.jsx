@@ -163,7 +163,7 @@ function norm(ev) {
     childName: ev.child_name  || ev.childName  || "",
     eventName: ev.event_name  || ev.eventName  || "",
     familyId:  ev.family_id   || ev.familyId,
-    family:    ev.family_name || ev.family     || "",
+    family:    (() => { const fid = ev.family_id || ev.familyId; const f = FAMILIES.find(f => f.id === fid); return f ? f.name.split(" ").slice(0, 3).join(" ") : (ev.family_name || ev.family || ""); })(),
   };
 }
 
@@ -799,7 +799,7 @@ export default function ClaytonLink() {
     try {
       const fam = auth.family;
       if (!fam) { alert("No family linked to your account. Contact Chris or JaCee."); return; }
-      const familyName = fam.name.split(" ").slice(0, 2).join(" ");
+      const familyName = fam.name.split(" ").slice(0, 3).join(" ");
       for (const row of valid) {
         const data = await db.insertEvent(cycle.id, fam.id, familyName, row);
         if (data) setEvents(p => [...p, data]);
