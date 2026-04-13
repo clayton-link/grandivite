@@ -51,25 +51,13 @@ function resolveAuth(email) {
 
 // ── HELPERS ───────────────────────────────────────────────────────────────────
 function impInfo(level) {
-  if (level === 3) return { label: "1:1 Time",    stars: "⭐⭐⭐", color: C.terra, bg: C.terraLight, border: C.terraBorder, msg: "This is a chance for just you two — it would mean everything to them." };
-  if (level === 2) return { label: "Milestone",   stars: "⭐⭐",   color: C.green, bg: C.greenLight, border: C.greenBorder, msg: "This is a once-in-a-lifetime moment — we'd love you there." };
+  if (level === 3) return { label: "Milestone",   stars: "⭐⭐⭐", color: C.green, bg: C.greenLight, border: C.greenBorder, msg: "This is a once-in-a-lifetime moment — we'd love you there." };
+  if (level === 2) return { label: "1:1 Time",    stars: "⭐⭐",   color: C.terra, bg: C.terraLight, border: C.terraBorder, msg: "This is a chance for just you two — it would mean everything to them." };
   return              { label: "Group Event", stars: "⭐",     color: C.brown, bg: C.brownLight, border: C.brownBorder, msg: "Come cheer with the whole family!" };
 }
 
 const formatDate  = d => d ? new Date(d + "T12:00:00").toLocaleDateString("en-US", { weekday: "long",  month: "long",  day: "numeric" }) : "";
 const formatShort = d => d ? new Date(d + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "";
-
-function getWindowDates() {
-  const today = new Date();
-  const min14 = new Date(today); min14.setDate(today.getDate() + 14);
-  const max30 = new Date(today); max30.setDate(today.getDate() + 30);
-  return {
-    monthLabel:  today.toLocaleDateString("en-US", { month: "long",  year: "numeric" }),
-    windowLabel: `${today.toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${max30.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`,
-    min14Label:  min14.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-    max30Label:  max30.toLocaleDateString("en-US", { month: "long",  day: "numeric" }),
-  };
-}
 
 // Generate and download an .ics calendar file for a single event
 function addToCalendar(ev) {
@@ -206,13 +194,6 @@ const db = {
     await supabase.from("events").delete().eq("cycle_id", cycleId);
     await supabase.from("cycles").update({ locked: false, digest_sent: false }).eq("id", cycleId);
   },
-  fetchSettings: async () => {
-    const { data } = await supabase.from("settings").select("auto_nudge_enabled").eq("id", 1).single();
-    return data;
-  },
-  updateSettings: async (fields) => {
-    await supabase.from("settings").update(fields).eq("id", 1);
-  },
 };
 
 // ── UI PRIMITIVES ─────────────────────────────────────────────────────────────
@@ -313,8 +294,8 @@ function EditModal({ event, onSave, onClose, familyChildren }) {
           <span style={lbl}>Priority</span>
           <select style={inp} value={draft.importance} onChange={e => set("importance", e.target.value)}>
             <option value="">Select priority...</option>
-            <option value="3">⭐⭐⭐ Intentional 1:1 Time</option>
-            <option value="2">⭐⭐ Milestone</option>
+            <option value="3">⭐⭐⭐ Milestone</option>
+            <option value="2">⭐⭐ Intentional 1:1 Time</option>
             <option value="1">⭐ Group Event</option>
           </select>
         </div>
@@ -647,7 +628,6 @@ export default function ClaytonLink() {
   const [formSubmitted, setFormSubmitted] = useState(false);
   const [promptSent, setPromptSent]       = useState(false);
   const [reminderSent, setReminderSent]   = useState(false);
-  const [autoNudge, setAutoNudge]         = useState(true);
 
   // Font load
   useEffect(() => {
@@ -675,8 +655,6 @@ export default function ClaytonLink() {
         setEvents(evs);
         setRsvpMap(rvps);
       }
-      const settings = await db.fetchSettings();
-      if (settings != null) setAutoNudge(settings.auto_nudge_enabled);
       setLoading(false);
     })();
 
@@ -763,7 +741,10 @@ export default function ClaytonLink() {
   const handleSubmit = async () => {
     const valid = formRows.filter(r => r.childName && r.eventName && r.date && r.importance);
     if (!valid.length) return;
-    if (!cycle) { alert("No active cycle found. Contact the coordinator."); return; }
+    if (!cycle?.id) {
+      alert("No active cycle found. Please ask the coordinator to set up the current cycle in Supabase.");
+      return;
+    }
     const fam = auth.family;
     const familyName = fam.name.split(" ").slice(0, 2).join(" ");
     try {
@@ -774,7 +755,7 @@ export default function ClaytonLink() {
       setFormSubmitted(true);
     } catch (err) {
       console.error("Submit failed:", err);
-      alert("Something went wrong submitting your events. Please try again or contact Chris.");
+      alert("Something went wrong saving your events. Please try again or contact Chris.");
     }
   };
   const updateRow = (i, f, v) => setFormRows(rows => rows.map((r, idx) => idx === i ? { ...r, [f]: v } : r));
@@ -844,35 +825,6 @@ export default function ClaytonLink() {
           }}>{promptSent ? "✓ Prompt Sent" : "📧 Send via Email"}</Btn>
 
         </div>
-      </div>
-      <div style={{ ...card, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div>
-          <div style={{ fontWeight: 700, fontSize: 14, color: C.text }}>Auto Monthly Prompt</div>
-          <div style={{ fontSize: 12, color: C.muted, marginTop: 3 }}>
-            {autoNudge
-              ? "Cron job emails all families on the 1st of each month."
-              : "Auto email is paused — send manually above."}
-          </div>
-        </div>
-        <button
-          onClick={async () => {
-            const next = !autoNudge;
-            setAutoNudge(next);
-            await db.updateSettings({ auto_nudge_enabled: next });
-          }}
-          style={{
-            width: 52, height: 28, borderRadius: 14, border: "none", cursor: "pointer",
-            backgroundColor: autoNudge ? C.green : C.border,
-            position: "relative", flexShrink: 0, transition: "background-color 0.2s",
-          }}
-        >
-          <span style={{
-            position: "absolute", top: 3, left: autoNudge ? 26 : 4,
-            width: 22, height: 22, borderRadius: "50%", backgroundColor: C.white,
-            transition: "left 0.2s", display: "block",
-            boxShadow: "0 1px 4px rgba(0,0,0,0.2)",
-          }} />
-        </button>
       </div>
     </div>
   );
@@ -950,8 +902,8 @@ export default function ClaytonLink() {
                     <span style={lbl}>Priority</span>
                     <select style={inp} value={row.importance} onChange={e => updateRow(i, "importance", e.target.value)}>
                       <option value="">Select priority...</option>
-                      <option value="3">⭐⭐⭐ Intentional 1:1 Time</option>
-                      <option value="2">⭐⭐ Milestone</option>
+                      <option value="3">⭐⭐⭐ Milestone</option>
+                      <option value="2">⭐⭐ Intentional 1:1 Time</option>
                       <option value="1">⭐ Group Event</option>
                     </select>
                   </div>
@@ -961,19 +913,10 @@ export default function ClaytonLink() {
                 </div>
               </div>
             ))}
-            {(() => {
-              const hasValid = formRows.some(r => r.childName && r.eventName && r.date && r.importance);
-              const missingPriority = formRows.some(r => r.childName && r.eventName && r.date && !r.importance);
-              return (
-                <>
-                  {missingPriority && <p style={{ fontSize: 12, color: C.terra, margin: "0 0 8px", fontWeight: 700 }}>⚠️ Select a Priority for each event before submitting.</p>}
-                  <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                    <Btn variant="outline" onClick={() => setFormRows(r => [...r, BLANK_ROW()])}>+ Add Another Event</Btn>
-                    <Btn variant="accent" disabled={!hasValid} onClick={handleSubmit}>Submit Our Events →</Btn>
-                  </div>
-                </>
-              );
-            })()}
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+              <Btn variant="outline" onClick={() => setFormRows(r => [...r, BLANK_ROW()])}>+ Add Another Event</Btn>
+              <Btn variant="accent" onClick={handleSubmit}>Submit Our Events →</Btn>
+            </div>
           </>
         )}
       </div>
@@ -1058,7 +1001,7 @@ export default function ClaytonLink() {
                 <Btn variant="accent" onClick={() => {
                   const subject = encodeURIComponent(`The Family's ${cycle?.month_label} Highlights — Clayton Link`);
                   const lines   = sortedEvents.map(ev => {
-                    const imp = ev.importance === 3 ? "⭐⭐⭐ 1:1 Time" : ev.importance === 2 ? "⭐⭐ Milestone" : "⭐ Group Event";
+                    const imp = ev.importance === 3 ? "⭐⭐⭐ Milestone" : ev.importance === 2 ? "⭐⭐ 1:1 Time" : "⭐ Group Event";
                     return `${imp}\n${ev.childName} — ${ev.eventName}\n${formatDate(ev.date)}${ev.time ? " · " + ev.time : ""}${ev.location ? "\n📍 " + ev.location : ""}${ev.notes ? `\n"${ev.notes}"` : ""}\n`;
                   }).join("\n");
                   const body    = encodeURIComponent(`Hi Nana and Papa!\n\nHere's what's coming up in ${cycle?.month_label}. We love you!\n\n${lines}\nFull page: https://claytonlink.com\n\nLove, The Clayton Family`);
