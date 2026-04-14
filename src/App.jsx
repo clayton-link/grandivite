@@ -1488,7 +1488,7 @@ export default function ClaytonLink() {
               const gcalDay = `https://calendar.google.com/calendar/r/day/${cy}/${cm}/${cd}`;
               const calBtns = (
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  <button onClick={() => addToGoogleCalendar(ev)} style={{ flex: 1, padding: "10px 14px", borderRadius: 10, border: `1.5px solid ${C.green}`, backgroundColor: C.white, color: C.green, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'Lato', sans-serif" }}>📅 Google Calendar</button>
+                  <button onClick={() => addToGoogleCalendar(ev)} style={{ flex: 1, padding: "10px 14px", borderRadius: 10, border: `1.5px solid ${C.green}`, backgroundColor: C.white, color: C.green, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'Lato', sans-serif" }}>📅 Re-add to Google</button>
                   <button onClick={() => addToCalendar(ev)}       style={{ flex: 1, padding: "10px 14px", borderRadius: 10, border: `1.5px solid ${C.muted}`, backgroundColor: C.white, color: C.muted, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'Lato', sans-serif" }}>📅 Apple Calendar</button>
                 </div>
               );
@@ -1498,7 +1498,7 @@ export default function ClaytonLink() {
                     <>
                       <a href={gcalDay} target="_blank" rel="noreferrer" style={{ fontSize: 13, color: C.muted, textDecoration: "none", fontWeight: 600 }}>📅 Check your calendar →</a>
                       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                        <button onClick={() => setRsvp(ev.id, "yes")}   style={{ flex: 1, padding: "10px 14px", borderRadius: 10, border: `2px solid ${C.green}`, backgroundColor: C.white, color: C.green, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'Lato', sans-serif" }}>✓ We'll be there!</button>
+                        <button onClick={() => { setRsvp(ev.id, "yes"); addToGoogleCalendar(ev); }} style={{ flex: 1, padding: "10px 14px", borderRadius: 10, border: `2px solid ${C.green}`, backgroundColor: C.white, color: C.green, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'Lato', sans-serif" }}>✓ We'll be there!</button>
                         <button onClick={() => setRsvp(ev.id, "maybe")} style={{ flex: 1, padding: "10px 14px", borderRadius: 10, border: `2px solid ${C.terra}`, backgroundColor: C.white, color: C.terra, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'Lato', sans-serif" }}>◎ Maybe</button>
                       </div>
                     </>
