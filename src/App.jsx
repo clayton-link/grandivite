@@ -730,6 +730,17 @@ export default function ClaytonLink() {
         if (dbGrand?.emails?.length) setGrandparents(dbGrand);
         if (dbOrg)                   setOrgData(dbOrg);
         if (dbOrgSettings)           setOrgSettings(dbOrgSettings);
+
+        // Re-resolve auth with DB-fresh role lists — auth was resolved above against
+        // hardcoded constants before the DB had loaded, so role changes (e.g. demoting
+        // a coordinator to a regular family member) wouldn't have taken effect yet.
+        if (session?.user) {
+          const freshFamilies = dbGroups?.length ? dbGroups : FAMILIES;
+          const freshCoords   = dbCoords?.length  ? dbCoords  : COORDINATOR_EMAILS;
+          const reResolved    = resolveAuth(session.user.email, freshFamilies, freshCoords);
+          if (reResolved) { setAuth(reResolved); setStep(reResolved.role === "coordinator" ? 1 : 2); }
+          else            { setAuth(null); setUnrecognized(true); }
+        }
       } catch (_) {
         // Silently fall back to hardcoded constants — app remains functional
       }
