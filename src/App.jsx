@@ -348,8 +348,14 @@ function EditModal({ event, onSave, onClose, familyChildren, noteLabel = "A Note
         </div>
 
         <div style={{ marginBottom: 24 }}>
-          <span style={lbl}>{noteLabel}</span>
-          <textarea style={{ ...inp, resize: "vertical", minHeight: 72 }} value={draft.notes} onChange={e => set("notes", e.target.value)} />
+          <NotesField
+            label={noteLabel}
+            value={draft.notes}
+            onChange={v => set("notes", v)}
+            childName={draft.childName}
+            eventName={draft.eventName}
+            importance={draft.importance}
+          />
         </div>
 
         <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
@@ -381,6 +387,58 @@ function DigestDraftModal({ draft, onDraftChange, onSend, onClose, isMobile }) {
           <Btn variant="ghost" onClick={onClose}>Cancel</Btn>
           <Btn variant="accent" onClick={onSend}>📧 Open in Email</Btn>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ── SMART NOTES FIELD ─────────────────────────────────────────────────────────
+function NotesField({ value, onChange, label, placeholder, childName, eventName, importance }) {
+  const [loading, setLoading] = useState(false);
+  const [original, setOriginal] = useState(null);
+
+  const handlePolish = async () => {
+    if (!value?.trim() || !childName || !eventName || !importance) return;
+    setLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch("/api/polish-note", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session?.access_token}` },
+        body: JSON.stringify({ childName, eventName, importance: parseInt(importance), note: value }),
+      });
+      if (!res.ok) throw new Error();
+      const { polished } = await res.json();
+      setOriginal(value);
+      onChange(polished);
+    } catch {
+      alert("Couldn't polish the note — try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleChange = (e) => { setOriginal(null); onChange(e.target.value); };
+
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+        <span style={lbl}>{label}</span>
+        {original !== null && (
+          <button onClick={() => { onChange(original); setOriginal(null); }} style={{ background: "none", border: "none", fontSize: 12, color: C.muted, cursor: "pointer", padding: 0, textDecoration: "underline", fontFamily: "'Lato', sans-serif" }}>↩ Undo</button>
+        )}
+      </div>
+      <div style={{ position: "relative" }}>
+        <textarea style={{ ...inp, resize: "vertical", minHeight: 72 }} placeholder={placeholder} value={value} onChange={handleChange} />
+        {value?.trim() && (
+          <button
+            disabled={loading || !childName || !eventName || !importance}
+            onClick={handlePolish}
+            style={{ position: "absolute", bottom: 8, right: 8, backgroundColor: loading ? C.border : C.green, border: "none", borderRadius: 6, padding: "4px 10px", fontSize: 11, fontWeight: 700, color: loading ? C.muted : C.white, cursor: (loading || !childName || !eventName || !importance) ? "default" : "pointer", fontFamily: "'Lato', sans-serif" }}
+          >
+            {loading ? "Polishing…" : "✨ Polish"}
+          </button>
+        )}
       </div>
     </div>
   );
@@ -1106,8 +1164,16 @@ export default function ClaytonLink() {
                     </select>
                   </div>
                 </div>
-                <div><span style={lbl}>{noteLabel}</span>
-                  <textarea style={{ ...inp, resize: "vertical", minHeight: 72 }} placeholder="Share what makes this moment special..." value={row.notes} onChange={e => updateRow(i, "notes", e.target.value)} />
+                <div>
+                  <NotesField
+                    label={noteLabel}
+                    placeholder="Share what makes this moment special..."
+                    value={row.notes}
+                    onChange={v => updateRow(i, "notes", v)}
+                    childName={row.childName}
+                    eventName={row.eventName}
+                    importance={row.importance}
+                  />
                 </div>
               </div>
             ))}
