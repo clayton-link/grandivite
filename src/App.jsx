@@ -1236,7 +1236,8 @@ export default function ClaytonLink() {
 
   // ── STEP 4 (Nana & Papa view) ─────────────────────────────────────────────
   const Step4 = () => {
-    const confirmedEvents = sortedEvents.filter(ev => rsvpMap[ev.id] === "yes");
+    const chronoEvents    = [...events].map(norm).sort((a, b) => new Date(a.date) - new Date(b.date));
+    const confirmedEvents = chronoEvents.filter(ev => rsvpMap[ev.id] === "yes");
     return (
       <div>
       {confirmedEvents.length > 0 && (
@@ -1272,7 +1273,7 @@ export default function ClaytonLink() {
         <div style={{ fontSize: 11, opacity: 0.65, letterSpacing: "1.2px", fontWeight: 700 }}>{cycle?.month_label?.toUpperCase()} · CLAYTONLINK.COM</div>
       </div>
 
-      {sortedEvents.map(ev => {
+      {chronoEvents.map(ev => {
         const info = impInfo(ev.importance);
         return (
           <div key={ev.id} style={{ ...card, borderLeft: `5px solid ${info.color}`, padding: isMobile ? "16px 14px" : "22px 24px" }}>
