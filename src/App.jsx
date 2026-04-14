@@ -845,7 +845,33 @@ export default function ClaytonLink() {
       const fam = auth.family;
       if (!fam) { alert("No family linked to your account. Contact Chris or JaCee."); return; }
       const familyName = fam.name.split(" ").slice(0, 3).join(" ");
+
+      // Enforce per-child event limit
+      const MAX = orgSettings?.max_events_per_child ?? 2;
+      const existingPerChild = {};
+      myEvents.forEach(e => {
+        const key = e.childName?.trim().toLowerCase();
+        if (key) existingPerChild[key] = (existingPerChild[key] || 0) + 1;
+      });
+      const toSubmit = [];
+      const newPerChild = { ...existingPerChild };
+      const skipped = [];
       for (const row of valid) {
+        const key = row.childName.trim().toLowerCase();
+        if ((newPerChild[key] || 0) >= MAX) {
+          skipped.push(row.childName);
+        } else {
+          toSubmit.push(row);
+          newPerChild[key] = (newPerChild[key] || 0) + 1;
+        }
+      }
+      if (skipped.length) {
+        const names = [...new Set(skipped)].join(", ");
+        alert(`${names} already ${skipped.length === 1 ? "has" : "have"} ${MAX} event${MAX !== 1 ? "s" : ""} this cycle. Those extra events were not saved.`);
+      }
+      if (!toSubmit.length) return;
+
+      for (const row of toSubmit) {
         const data = await db.insertEvent(cycle.id, fam.id, familyName, row);
         if (data) setEvents(p => [...p, data]);
       }
@@ -987,9 +1013,12 @@ export default function ClaytonLink() {
                     )}
                     {(() => {
                       if (!row.childName) return null;
-                      const count = formRows.filter((r, idx) => idx !== i && r.childName === row.childName).length;
-                      if (count >= 2) return <div style={{ fontSize: 11, color: C.red,   marginTop: 5, fontWeight: 700 }}>⚠️ Max 2 events reached for {row.childName}</div>;
-                      if (count === 1) return <div style={{ fontSize: 11, color: C.terra, marginTop: 5, fontWeight: 700 }}>This is event 2 of 2 for {row.childName}</div>;
+                      const MAX = orgSettings?.max_events_per_child ?? 2;
+                      const already  = myEvents.filter(e => e.childName === row.childName).length;
+                      const inForm   = formRows.filter((r, idx) => idx !== i && r.childName === row.childName).length;
+                      const total    = already + inForm;
+                      if (total >= MAX) return <div style={{ fontSize: 11, color: C.red,   marginTop: 5, fontWeight: 700 }}>⚠️ Max {MAX} event{MAX !== 1 ? "s" : ""} reached for {row.childName}</div>;
+                      if (total === MAX - 1) return <div style={{ fontSize: 11, color: C.terra, marginTop: 5, fontWeight: 700 }}>This is event {MAX} of {MAX} for {row.childName}</div>;
                       return null;
                     })()}
                   </div>
