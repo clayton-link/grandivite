@@ -392,6 +392,44 @@ function DigestDraftModal({ draft, onDraftChange, onSend, onClose, isMobile }) {
   );
 }
 
+// ── AI NUDGE DRAFTS MODAL ─────────────────────────────────────────────────────
+function NudgeDraftsModal({ drafts, onDraftChange, pendingFamilies, onClose, isMobile }) {
+  return (
+    <div style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.45)", zIndex: 500, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+      <div style={{ backgroundColor: C.white, borderRadius: 20, padding: isMobile ? 18 : 28, width: "100%", maxWidth: 560, maxHeight: "90vh", display: "flex", flexDirection: "column", boxShadow: "0 24px 80px rgba(0,0,0,0.25)" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+          <h3 style={{ ...serif, fontSize: 22, margin: 0, color: C.green }}>✨ AI Nudge Drafts</h3>
+          <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: C.muted }}>✕</button>
+        </div>
+        <p style={{ fontSize: 13, color: C.muted, margin: "0 0 16px", lineHeight: 1.5 }}>Personalized for each family. Edit and open to send.</p>
+        <div style={{ overflowY: "auto", flex: 1, display: "flex", flexDirection: "column", gap: 20 }}>
+          {pendingFamilies.map(f => (
+            <div key={f.id} style={{ borderBottom: `1px solid ${C.border}`, paddingBottom: 16 }}>
+              <div style={{ fontWeight: 700, fontSize: 14, color: C.text, marginBottom: 8 }}>{f.name}</div>
+              <textarea
+                value={drafts[f.name] || ""}
+                onChange={e => onDraftChange(f.name, e.target.value)}
+                style={{ width: "100%", border: `1.5px solid ${C.border}`, borderRadius: 10, padding: "10px 12px", fontFamily: "'Lato', sans-serif", fontSize: 13, color: C.text, lineHeight: 1.7, resize: "vertical", minHeight: 100, boxSizing: "border-box", outline: "none" }}
+              />
+              <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
+                <Btn variant="accent" style={{ padding: "6px 14px", fontSize: 12 }} onClick={() => {
+                  const to      = encodeURIComponent(f.emails.join(","));
+                  const subject = encodeURIComponent("Quick heads up — Clayton Link events due soon");
+                  const body    = encodeURIComponent(drafts[f.name] || "");
+                  window.open(`mailto:${to}?subject=${subject}&body=${body}`);
+                }}>📧 Open</Btn>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 16 }}>
+          <Btn variant="ghost" onClick={onClose}>Done</Btn>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── SMART NOTES FIELD ─────────────────────────────────────────────────────────
 function NotesField({ value, onChange, label, placeholder, childName, eventName, importance }) {
   const [loading, setLoading] = useState(false);
@@ -767,9 +805,14 @@ export default function ClaytonLink() {
   const [orgData, setOrgData]                     = useState(null);
   const [orgSettings, setOrgSettings]             = useState(null);
   // AI draft state
-  const [aiDraft, setAiDraft]           = useState("");
+  const [aiDraft, setAiDraft]               = useState("");
   const [aiDraftLoading, setAiDraftLoading] = useState(false);
   const [showDraftModal, setShowDraftModal] = useState(false);
+  // AI nudge state
+  const [nudgeDrafts, setNudgeDrafts]           = useState({});
+  const [nudgeDraftLoading, setNudgeDraftLoading] = useState(false);
+  const [showNudgeModal, setShowNudgeModal]       = useState(false);
+  const [nudgePending, setNudgePending]           = useState([]);
   const isMobile = useIsMobile();
 
   // Font load
@@ -925,6 +968,28 @@ export default function ClaytonLink() {
   };
   const handleLock   = async () => { setCycle(p => ({ ...p, locked: true }));       await db.updateCycle(cycle.id, { locked: true }); };
   const handleDigest = async () => { setCycle(p => ({ ...p, digest_sent: true }));  await db.updateCycle(cycle.id, { digest_sent: true }); };
+  const handleAiNudge = async () => {
+    const pending = familiesWithStatus.filter(f => !f.submitted);
+    if (!pending.length) return;
+    setNudgeDraftLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch("/api/draft-nudge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session?.access_token}` },
+        body: JSON.stringify({ pendingFamilies: pending, max30Label: win.max30Label }),
+      });
+      if (!res.ok) throw new Error();
+      const { drafts } = await res.json();
+      setNudgeDrafts(drafts);
+      setNudgePending(pending);
+      setShowNudgeModal(true);
+    } catch {
+      alert("Couldn't generate nudge drafts — try again.");
+    } finally {
+      setNudgeDraftLoading(false);
+    }
+  };
   const handleAiDraft = async () => {
     setAiDraftLoading(true);
     try {
@@ -1044,6 +1109,9 @@ export default function ClaytonLink() {
                 window.open(`mailto:${pending}?subject=${subject}&body=${body}`);
                 setReminderSent(true);
               }}>{reminderSent ? "✓ Email Sent" : "📧 Nudge via Email"}</Btn>
+              <Btn variant="primary" style={{ padding: "6px 14px", fontSize: 12 }} disabled={nudgeDraftLoading} onClick={handleAiNudge}>
+                {nudgeDraftLoading ? "Drafting…" : "✨ AI Nudge"}
+              </Btn>
 
             </>
           )}
@@ -1483,6 +1551,15 @@ export default function ClaytonLink() {
           onClose={() => setEditingEvent(null)}
           familyChildren={families.find(f => f.id === (editingEvent?.family_id || editingEvent?.familyId))?.children || []}
           noteLabel={noteLabel}
+        />
+      )}
+      {showNudgeModal && (
+        <NudgeDraftsModal
+          drafts={nudgeDrafts}
+          onDraftChange={(name, val) => setNudgeDrafts(p => ({ ...p, [name]: val }))}
+          pendingFamilies={nudgePending}
+          isMobile={isMobile}
+          onClose={() => setShowNudgeModal(false)}
         />
       )}
       {showDraftModal && (
