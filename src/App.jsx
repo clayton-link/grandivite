@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { createClient } from "@supabase/supabase-js";
+import { adminDb } from "./admin/adminDb.js";
 
 // ── SUPABASE CONFIG ───────────────────────────────────────────────────────────
 // Get these from: supabase.com → your project → Settings → API
@@ -40,11 +41,12 @@ const GRANDPARENTS = { emails: ["pnsleep@gmail.com", "hbeec@gmail.com"], phones:
 const BLANK_ROW = () => ({ childName: "", eventName: "", date: "", time: "", location: "", lat: null, lng: null, importance: "", notes: "" });
 
 // Resolve a signed-in Google email to a role + family
-function resolveAuth(email) {
+// Accepts dynamic arrays (from DB) — falls back to hardcoded constants
+function resolveAuth(email, fams = FAMILIES, coordEmails = COORDINATOR_EMAILS) {
   if (!email) return null;
   const lower = email.toLowerCase();
-  const family = FAMILIES.find(f => f.emails.map(e => e.toLowerCase()).includes(lower));
-  if (COORDINATOR_EMAILS.map(e => e.toLowerCase()).includes(lower)) return { role: "coordinator", family: family || null };
+  const family = fams.find(f => f.emails.map(e => e.toLowerCase()).includes(lower));
+  if (coordEmails.map(e => e.toLowerCase()).includes(lower)) return { role: "coordinator", family: family || null };
   if (family) return { role: "family", family };
   return null; // email not recognized
 }
@@ -267,7 +269,7 @@ function Spinner() {
   );
 }
 
-function EditModal({ event, onSave, onClose, familyChildren }) {
+function EditModal({ event, onSave, onClose, familyChildren, noteLabel = "A Note for Nana & Papa (Optional)" }) {
   const isMobile = useIsMobile();
   const e = norm(event);
   const [draft, setDraft] = useState({
@@ -346,7 +348,7 @@ function EditModal({ event, onSave, onClose, familyChildren }) {
         </div>
 
         <div style={{ marginBottom: 24 }}>
-          <span style={lbl}>A Note for Nana & Papa (Optional)</span>
+          <span style={lbl}>{noteLabel}</span>
           <textarea style={{ ...inp, resize: "vertical", minHeight: 72 }} value={draft.notes} onChange={e => set("notes", e.target.value)} />
         </div>
 
@@ -575,10 +577,10 @@ function EventCard({ ev, canEdit, onEdit, onRemove, locked, isConflict = false }
   );
 }
 
-function CalendarView({ events, rsvpMap = {} }) {
+function CalendarView({ events, rsvpMap = {}, families = FAMILIES }) {
   const isMobile = useIsMobile();
   const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  const famColors = Object.fromEntries(FAMILIES.map(f => [f.id, f.color]));
+  const famColors = Object.fromEntries(families.map(f => [f.id, f.color]));
   const byDay = {};
   events.forEach(ev => {
     const e = norm(ev);
@@ -603,7 +605,7 @@ function CalendarView({ events, rsvpMap = {} }) {
       <div style={{ ...card, padding: 16, marginBottom: 16 }}>
         <div style={lbl}>Families</div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-          {FAMILIES.map(f => <span key={f.id} style={{ fontSize: 12, fontWeight: 700, padding: "5px 14px", borderRadius: 20, backgroundColor: f.color + "18", color: f.color, border: `1px solid ${f.color}40`, whiteSpace: "nowrap" }}>{f.name}</span>)}
+          {families.map(f => <span key={f.id} style={{ fontSize: 12, fontWeight: 700, padding: "5px 14px", borderRadius: 20, backgroundColor: f.color + "18", color: f.color, border: `1px solid ${f.color}40`, whiteSpace: "nowrap" }}>{f.name}</span>)}
         </div>
       </div>
       <div style={{ ...card, padding: 16 }}>
@@ -676,6 +678,12 @@ export default function ClaytonLink() {
   const [reminderSent, setReminderSent]   = useState(false);
   const [autoNudge, setAutoNudge]         = useState(true);
   const [familyRsvpMap, setFamilyRsvpMap] = useState({});
+  // DB-driven config — initialized to hardcoded constants as fallback
+  const [families, setFamilies]                   = useState(FAMILIES);
+  const [coordinatorEmails, setCoordinatorEmails] = useState(COORDINATOR_EMAILS);
+  const [grandparents, setGrandparents]           = useState(GRANDPARENTS);
+  const [orgData, setOrgData]                     = useState(null);
+  const [orgSettings, setOrgSettings]             = useState(null);
   const isMobile = useIsMobile();
 
   // Font load
@@ -693,7 +701,7 @@ export default function ClaytonLink() {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
         setGoogleUser(session.user);
-        const resolved = resolveAuth(session.user.email);
+        const resolved = resolveAuth(session.user.email, families, coordinatorEmails);
         if (resolved) { setAuth(resolved); setStep(resolved.role === "coordinator" ? 1 : 2); }
         else { setUnrecognized(true); }
       }
@@ -707,6 +715,25 @@ export default function ClaytonLink() {
       }
       const settings = await db.fetchSettings();
       if (settings != null) setAutoNudge(settings.auto_nudge_enabled);
+
+      // Load org config from DB — falls back to hardcoded constants if tables empty
+      try {
+        const [dbGroups, dbCoords, dbGrand, dbOrg, dbOrgSettings] = await Promise.all([
+          adminDb.fetchGroupsForApp(),
+          adminDb.fetchCoordinatorEmails(),
+          adminDb.fetchDigestRecipients(),
+          adminDb.fetchOrg(),
+          adminDb.fetchOrgSettings(),
+        ]);
+        if (dbGroups?.length)        setFamilies(dbGroups);
+        if (dbCoords?.length)        setCoordinatorEmails(dbCoords);
+        if (dbGrand?.emails?.length) setGrandparents(dbGrand);
+        if (dbOrg)                   setOrgData(dbOrg);
+        if (dbOrgSettings)           setOrgSettings(dbOrgSettings);
+      } catch (_) {
+        // Silently fall back to hardcoded constants — app remains functional
+      }
+
       setLoading(false);
     })();
 
@@ -714,7 +741,7 @@ export default function ClaytonLink() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
         setGoogleUser(session.user);
-        const resolved = resolveAuth(session.user.email);
+        const resolved = resolveAuth(session.user.email, families, coordinatorEmails);
         if (resolved) { setAuth(resolved); setStep(resolved.role === "coordinator" ? 1 : 2); }
         else { setUnrecognized(true); }
       } else {
@@ -759,8 +786,13 @@ export default function ClaytonLink() {
   // Dynamic date window — recomputes on every render (i.e. always today)
   const win = getWindowDates();
 
+  // Org-configurable copy — falls back to hardcoded strings
+  const noteLabel      = orgSettings?.note_label      || "A Note for Nana & Papa (Optional)";
+  const digestGreeting = orgData?.digest_greeting      || "Hi Nana and Papa!";
+  const digestSignoff  = orgData?.digest_signoff       || "Love, The Clayton Family";
+
   const submittedFamilyIds = new Set(events.map(e => e.family_id || e.familyId));
-  const familiesWithStatus = FAMILIES.map(f => ({ ...f, submitted: submittedFamilyIds.has(f.id) }));
+  const familiesWithStatus = families.map(f => ({ ...f, submitted: submittedFamilyIds.has(f.id) }));
   const sortedEvents       = [...events].map(norm).sort((a, b) => b.importance - a.importance || new Date(a.date) - new Date(b.date));
   const myEvents           = events.filter(e => (e.family_id || e.familyId) === auth.family?.id).map(norm);
 
@@ -860,7 +892,7 @@ export default function ClaytonLink() {
           </div>
         ))}
         <div style={{ marginTop: 16, display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-          <span style={{ fontSize: 13, color: C.muted }}>{familiesWithStatus.filter(f => f.submitted).length} of {FAMILIES.length} submitted</span>
+          <span style={{ fontSize: 13, color: C.muted }}>{familiesWithStatus.filter(f => f.submitted).length} of {families.length} submitted</span>
           {familiesWithStatus.some(f => !f.submitted) && (
             <>
               <Btn variant="outline" style={{ padding: "6px 14px", fontSize: 12 }} onClick={() => {
@@ -882,7 +914,7 @@ export default function ClaytonLink() {
         </div>
         <div style={{ marginTop: 16, display: "flex", gap: 10, flexWrap: "wrap" }}>
           <Btn variant={promptSent ? "outline" : "accent"} onClick={() => {
-            const emails  = FAMILIES.flatMap(f => f.emails).join(",");
+            const emails  = families.flatMap(f => f.emails).join(",");
             const subject = encodeURIComponent(`Clayton Link — Please Submit Your Upcoming Events`);
             const body    = encodeURIComponent(`Hey family!\n\nTime to submit your upcoming events on Clayton Link.\n\nPlease include events happening between now and ${win.max30Label}. Nana and Papa need at least 14 days notice — 30 is ideal.\n\nUp to 2 events per child.\nhttps://claytonlink.com\n\nLove, Chris & JaCee`);
             window.open(`mailto:${emails}?subject=${subject}&body=${body}`);
@@ -987,7 +1019,7 @@ export default function ClaytonLink() {
                     </select>
                   </div>
                 </div>
-                <div><span style={lbl}>A Note for Nana & Papa (Optional)</span>
+                <div><span style={lbl}>{noteLabel}</span>
                   <textarea style={{ ...inp, resize: "vertical", minHeight: 72 }} placeholder="Share what makes this moment special..." value={row.notes} onChange={e => updateRow(i, "notes", e.target.value)} />
                 </div>
               </div>
@@ -1016,7 +1048,7 @@ export default function ClaytonLink() {
               <p style={{ fontSize: 13, color: C.muted, margin: "0 0 12px" }}>Let them know you're coming!</p>
               {otherEvents.map(ev => {
                 const myRsvp   = familyRsvpMap[ev.id]?.[auth.family?.id];
-                const famColor = FAMILIES.find(f => f.id === ev.familyId)?.color || C.green;
+                const famColor = families.find(f => f.id === ev.familyId)?.color || C.green;
                 return (
                   <div key={ev.id} style={{ padding: "14px 0", borderBottom: `1px solid ${C.border}` }}>
                     <div style={{ display: "flex", gap: 10, alignItems: "flex-start", marginBottom: 8 }}>
@@ -1105,7 +1137,7 @@ export default function ClaytonLink() {
               <div style={{ fontWeight: 700, fontSize: 13, color: C.text, marginBottom: 6 }}>📅 {formatDate(date)}</div>
               {cEvs.map(ev => (
                 <div key={ev.id} style={{ fontSize: 12, color: C.text, paddingLeft: 12, marginTop: 3, display: "flex", gap: 8, alignItems: "center" }}>
-                  <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: FAMILIES.find(f => f.id === ev.familyId)?.color || C.green, flexShrink: 0, display: "inline-block" }} />
+                  <span style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: families.find(f => f.id === ev.familyId)?.color || C.green, flexShrink: 0, display: "inline-block" }} />
                   <span><strong>{ev.family}</strong> — {ev.childName}: {ev.eventName}{ev.time ? ` at ${ev.time}` : ""}</span>
                 </div>
               ))}
@@ -1157,13 +1189,13 @@ export default function ClaytonLink() {
                     const imp = ev.importance === 3 ? "⭐⭐⭐ Milestone" : ev.importance === 2 ? "⭐⭐ 1:1 Time" : "⭐ Group Event";
                     return `${imp}\n${ev.childName} — ${ev.eventName}\n${formatDate(ev.date)}${ev.time ? " · " + ev.time : ""}${ev.location ? "\n📍 " + ev.location : ""}${ev.notes ? `\n"${ev.notes}"` : ""}\n`;
                   }).join("\n");
-                  const body    = encodeURIComponent(`Hi Nana and Papa!\n\nHere's what's coming up in ${cycle?.month_label}. We love you!\n\n${lines}\nFull page: https://claytonlink.com\n\nLove, The Clayton Family`);
-                  window.open(`mailto:${GRANDPARENTS.emails.join(",")}?subject=${subject}&body=${body}`);
+                  const body    = encodeURIComponent(`${digestGreeting}\n\nHere's what's coming up in ${cycle?.month_label}. We love you!\n\n${lines}\nFull page: https://claytonlink.com\n\n${digestSignoff}`);
+                  window.open(`mailto:${grandparents.emails.join(",")}?subject=${subject}&body=${body}`);
                   handleDigest();
                 }}>📧 Email Digest</Btn>
                 <Btn variant="outline" title="Opens Messages to Nana and Papa only" onClick={() => {
-                  const body = encodeURIComponent(`Hi Nana and Papa! 🌿 The family's ${cycle?.month_label} highlights are ready -- tap to see what's coming up and RSVP! claytonlink.com`);
-                  window.open(`sms:${GRANDPARENTS.phones.join(",")}?body=${body}`);
+                  const body = encodeURIComponent(`${digestGreeting} 🌿 The family's ${cycle?.month_label} highlights are ready -- tap to see what's coming up and RSVP! claytonlink.com`);
+                  window.open(`sms:${grandparents.phones.join(",")}?body=${body}`);
                   handleDigest();
                 }}>💬 Text Nana & Papa Directly</Btn>
               </>
@@ -1206,7 +1238,7 @@ export default function ClaytonLink() {
       )}
       <div style={{ backgroundColor: C.green, borderRadius: 20, padding: isMobile ? "24px 16px" : "36px 24px", textAlign: "center", color: C.white, marginBottom: 24 }}>
         <div style={{ fontSize: 36, marginBottom: 12 }}>🌿</div>
-        <h2 style={{ ...serif, fontSize: 30, margin: "0 0 10px", fontWeight: 700 }}>Hi Nana and Papa!</h2>
+        <h2 style={{ ...serif, fontSize: 30, margin: "0 0 10px", fontWeight: 700 }}>{digestGreeting}</h2>
         <p style={{ margin: "0 0 16px", opacity: 0.88, fontSize: 15, lineHeight: 1.7 }}>Here's what's coming up with the family this month.<br />We love you and we'd love to share these moments with you.</p>
         <div style={{ fontSize: 11, opacity: 0.65, letterSpacing: "1.2px", fontWeight: 700 }}>{cycle?.month_label?.toUpperCase()} · CLAYTONLINK.COM</div>
       </div>
@@ -1268,7 +1300,7 @@ export default function ClaytonLink() {
             {ev.importance <= 2 && (() => {
               const attending = Object.entries(familyRsvpMap[ev.id] || {})
                 .filter(([, s]) => s === "yes")
-                .map(([fid]) => FAMILIES.find(f => f.id === parseInt(fid))?.name.split(" & ")[0])
+                .map(([fid]) => families.find(f => f.id === parseInt(fid))?.name.split(" & ")[0])
                 .filter(Boolean);
               if (!attending.length) return null;
               return <div style={{ marginTop: 10, fontSize: 13, color: C.muted }}>Also coming: <strong style={{ color: C.green }}>{attending.join(", ")}</strong></div>;
@@ -1292,7 +1324,8 @@ export default function ClaytonLink() {
           event={editingEvent}
           onSave={saveEdit}
           onClose={() => setEditingEvent(null)}
-          familyChildren={FAMILIES.find(f => f.id === (editingEvent?.family_id || editingEvent?.familyId))?.children || []}
+          familyChildren={families.find(f => f.id === (editingEvent?.family_id || editingEvent?.familyId))?.children || []}
+          noteLabel={noteLabel}
         />
       )}
       <div style={{ backgroundColor: C.white, borderBottom: `1px solid ${C.border}`, padding: `12px ${isMobile ? 14 : 24}px`, display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 100, boxShadow: "0 2px 12px rgba(44,74,62,0.07)", gap: 8 }}>
@@ -1317,7 +1350,7 @@ export default function ClaytonLink() {
         {step === 2 && Step2()}
         {step === 3 && Step3()}
         {step === 4 && Step4()}
-        {step === 5 && <CalendarView events={events} rsvpMap={rsvpMap} />}
+        {step === 5 && <CalendarView events={events} rsvpMap={rsvpMap} families={families} />}
       </div>
     </div>
   );

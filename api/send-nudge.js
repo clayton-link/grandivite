@@ -1,7 +1,8 @@
 import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
 
-const ALL_FAMILY_EMAILS = [
+// Fallback list used only if the DB query returns nothing
+const FALLBACK_FAMILY_EMAILS = [
   "pbclayton@gmail.com",
   "daniellezclayton@yahoo.com",
   "spenceraffleck@hotmail.com",
@@ -40,24 +41,38 @@ export default async function handler(req, res) {
     return res.status(200).json({ skipped: true, reason: "auto_nudge_enabled is false" });
   }
 
+  // 3. Fetch email list from DB — falls back to hardcoded list if query returns nothing
+  let familyEmails = FALLBACK_FAMILY_EMAILS;
+  try {
+    const { data: gmRows } = await supabase
+      .from("group_members")
+      .select("email, groups!inner(active, org_id)")
+      .eq("groups.active", true);
+    if (gmRows?.length) {
+      familyEmails = [...new Set(gmRows.map(r => r.email).filter(Boolean))];
+    }
+  } catch (_) {
+    // Silently use fallback list
+  }
+
   const max30Label = getMax30Label();
   const subject = "Clayton Link — Please Submit Your Upcoming Events";
   const text = `Hey family!\n\nTime to submit your upcoming events on Clayton Link.\n\nPlease include events happening between now and ${max30Label}. Nana and Papa need at least 14 days notice — 30 is ideal.\n\nUp to 2 events per child.\nhttps://claytonlink.com\n\nLove, Chris & JaCee`;
 
-  // 3. Dry-run guard — set SEND_EMAILS=true in Vercel env vars when ready to go live
+  // 4. Dry-run guard — set SEND_EMAILS=true in Vercel env vars when ready to go live
   if (process.env.SEND_EMAILS !== "true") {
     return res.status(200).json({
       dryRun: true,
       reason: "SEND_EMAILS is not set to 'true'",
-      wouldSend: ALL_FAMILY_EMAILS,
+      wouldSend: familyEmails,
       subject,
     });
   }
 
-  // 4. Send emails individually so recipients don't see each other's addresses
+  // 5. Send emails individually so recipients don't see each other's addresses
   const resend = new Resend(process.env.RESEND_API_KEY);
   const results = [];
-  for (const email of ALL_FAMILY_EMAILS) {
+  for (const email of familyEmails) {
     const { data, error: sendErr } = await resend.emails.send({
       from: "Clayton Link <noreply@claytonlink.com>",
       to: [email],
