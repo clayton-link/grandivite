@@ -1080,7 +1080,7 @@ export default function ClaytonLink() {
           </>
         )}
         {(() => {
-          const otherEvents = sortedEvents.filter(ev => ev.importance <= 2 && ev.familyId !== auth.family?.id);
+          const otherEvents = sortedEvents.filter(ev => ev.familyId !== auth.family?.id);
           if (!otherEvents.length) return null;
           return (
             <div style={{ ...card, marginTop: 16 }}>
@@ -1338,7 +1338,7 @@ export default function ClaytonLink() {
                 </div>
               );
             })()}
-            {ev.importance <= 2 && (() => {
+            {(() => {
               const attending = Object.entries(familyRsvpMap[ev.id] || {})
                 .filter(([, s]) => s === "yes")
                 .map(([fid]) => families.find(f => f.id === parseInt(fid))?.name.split(" & ")[0])
