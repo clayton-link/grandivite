@@ -362,6 +362,30 @@ function EditModal({ event, onSave, onClose, familyChildren, noteLabel = "A Note
 }
 
 
+// ── AI DIGEST DRAFT MODAL ─────────────────────────────────────────────────────
+function DigestDraftModal({ draft, onDraftChange, onSend, onClose, isMobile }) {
+  return (
+    <div style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.45)", zIndex: 500, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+      <div style={{ backgroundColor: C.white, borderRadius: 20, padding: isMobile ? 18 : 28, width: "100%", maxWidth: 540, maxHeight: "90vh", display: "flex", flexDirection: "column", boxShadow: "0 24px 80px rgba(0,0,0,0.25)" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+          <h3 style={{ ...serif, fontSize: 22, margin: 0, color: C.green }}>✨ AI Digest Draft</h3>
+          <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: C.muted }}>✕</button>
+        </div>
+        <p style={{ fontSize: 13, color: C.muted, margin: "0 0 14px", lineHeight: 1.5 }}>Edit below, then open in your email client to send.</p>
+        <textarea
+          value={draft}
+          onChange={e => onDraftChange(e.target.value)}
+          style={{ flex: 1, minHeight: 280, border: `1.5px solid ${C.border}`, borderRadius: 10, padding: "12px 14px", fontFamily: "'Lato', sans-serif", fontSize: 14, color: C.text, lineHeight: 1.7, resize: "vertical", outline: "none" }}
+        />
+        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 16 }}>
+          <Btn variant="ghost" onClick={onClose}>Cancel</Btn>
+          <Btn variant="accent" onClick={onSend}>📧 Open in Email</Btn>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── GOOGLE PLACES AUTOCOMPLETE ────────────────────────────────────────────────
 let googleMapsScriptPromise = null;
 
@@ -684,6 +708,10 @@ export default function ClaytonLink() {
   const [grandparents, setGrandparents]           = useState(GRANDPARENTS);
   const [orgData, setOrgData]                     = useState(null);
   const [orgSettings, setOrgSettings]             = useState(null);
+  // AI draft state
+  const [aiDraft, setAiDraft]           = useState("");
+  const [aiDraftLoading, setAiDraftLoading] = useState(false);
+  const [showDraftModal, setShowDraftModal] = useState(false);
   const isMobile = useIsMobile();
 
   // Font load
@@ -839,6 +867,25 @@ export default function ClaytonLink() {
   };
   const handleLock   = async () => { setCycle(p => ({ ...p, locked: true }));       await db.updateCycle(cycle.id, { locked: true }); };
   const handleDigest = async () => { setCycle(p => ({ ...p, digest_sent: true }));  await db.updateCycle(cycle.id, { digest_sent: true }); };
+  const handleAiDraft = async () => {
+    setAiDraftLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch("/api/draft-digest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session?.access_token}` },
+        body: JSON.stringify({ events: sortedEvents, monthLabel: cycle?.month_label, greeting: digestGreeting, signoff: digestSignoff }),
+      });
+      if (!res.ok) throw new Error("Draft failed");
+      const { draft } = await res.json();
+      setAiDraft(draft);
+      setShowDraftModal(true);
+    } catch {
+      alert("Couldn't generate a draft — check that ANTHROPIC_API_KEY is set in Vercel.");
+    } finally {
+      setAiDraftLoading(false);
+    }
+  };
   const handleReset  = async () => {
     if (!window.confirm("Clear all events and reset for the new month?")) return;
     setEvents([]); setRsvpMap({}); setCycle(p => ({ ...p, locked: false, digest_sent: false }));
@@ -1223,6 +1270,9 @@ export default function ClaytonLink() {
           : !digestSent
             ? <>
                 <Btn variant="outline" onClick={() => setStep(4)}>Preview Nana & Papa View</Btn>
+                <Btn variant="primary" disabled={aiDraftLoading} onClick={handleAiDraft}>
+                  {aiDraftLoading ? "Drafting…" : "✨ AI Draft"}
+                </Btn>
                 <Btn variant="accent" onClick={() => {
                   const subject = encodeURIComponent(`The Family's ${cycle?.month_label} Highlights — Clayton Link`);
                   const lines   = sortedEvents.map(ev => {
@@ -1367,6 +1417,20 @@ export default function ClaytonLink() {
           onClose={() => setEditingEvent(null)}
           familyChildren={families.find(f => f.id === (editingEvent?.family_id || editingEvent?.familyId))?.children || []}
           noteLabel={noteLabel}
+        />
+      )}
+      {showDraftModal && (
+        <DigestDraftModal
+          draft={aiDraft}
+          onDraftChange={setAiDraft}
+          isMobile={isMobile}
+          onClose={() => setShowDraftModal(false)}
+          onSend={() => {
+            const subject = encodeURIComponent(`The Family's ${cycle?.month_label} Highlights — Clayton Link`);
+            window.open(`mailto:${grandparents.emails.join(",")}?subject=${subject}&body=${encodeURIComponent(aiDraft)}`);
+            setShowDraftModal(false);
+            handleDigest();
+          }}
         />
       )}
       <div style={{ backgroundColor: C.white, borderBottom: `1px solid ${C.border}`, padding: `12px ${isMobile ? 14 : 24}px`, display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 100, boxShadow: "0 2px 12px rgba(44,74,62,0.07)", gap: 8 }}>
