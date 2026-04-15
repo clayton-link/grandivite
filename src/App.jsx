@@ -61,17 +61,17 @@ function impInfo(level) {
 const formatDate  = d => d ? new Date(d + "T12:00:00").toLocaleDateString("en-US", { weekday: "long",  month: "long",  day: "numeric" }) : "";
 const formatShort = d => d ? new Date(d + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "";
 
-// Dynamic 30-day window from today
-function getWindowDates() {
+// Dynamic window from today — lookaheadDays is org-configurable (default 30)
+function getWindowDates(lookaheadDays = 30) {
   const today = new Date();
   const min14 = new Date(today); min14.setDate(today.getDate() + 14);
-  const max30 = new Date(today); max30.setDate(today.getDate() + 30);
+  const maxN  = new Date(today); maxN.setDate(today.getDate() + lookaheadDays);
   const fmtShort = d => d.toLocaleDateString("en-US", { month: "long", day: "numeric" });
   return {
     today,
     min14Label:  fmtShort(min14),
-    max30Label:  fmtShort(max30),
-    windowLabel: `${fmtShort(today)} – ${fmtShort(max30)}`,
+    max30Label:  fmtShort(maxN),
+    windowLabel: `${fmtShort(today)} – ${fmtShort(maxN)}`,
     monthLabel:  today.toLocaleDateString("en-US", { month: "long", year: "numeric" }),
   };
 }
@@ -924,15 +924,18 @@ export default function ClaytonLink() {
   const digestSent = cycle?.digest_sent || false;
 
   // Dynamic date window — recomputes on every render (i.e. always today)
-  const win = getWindowDates();
+  const win = getWindowDates(orgSettings?.lookahead_days || 30);
 
   // Org-configurable copy — falls back to hardcoded strings
   const noteLabel      = orgSettings?.note_label      || "A Note for Nana & Papa (Optional)";
   const digestGreeting = orgData?.digest_greeting      || "Hi Nana and Papa!";
   const digestSignoff  = orgData?.digest_signoff       || "Love, The Clayton Family";
 
-  const submittedFamilyIds = new Set(events.map(e => e.family_id || e.familyId));
-  const familiesWithStatus = families.map(f => ({ ...f, submitted: submittedFamilyIds.has(f.id) }));
+  const submittedFamilyIds  = new Set(events.map(e => e.family_id || e.familyId));
+  const cadenceMultiplier   = (c) => c === "quarterly" ? 3 : c === "biannual" ? 6 : 1;
+  const isDueThisCycle      = (f) => (f.submission_cadence || "monthly") === "monthly";
+  const familiesWithStatus  = families.map(f => ({ ...f, submitted: submittedFamilyIds.has(f.id) }));
+  const pendingMonthly      = familiesWithStatus.filter(f => isDueThisCycle(f) && !f.submitted);
   const sortedEvents       = [...events].map(norm).sort((a, b) => b.importance - a.importance || new Date(a.date) - new Date(b.date));
   const myEvents           = events.filter(e => (e.family_id || e.familyId) === auth.family?.id).map(norm);
 
@@ -969,7 +972,7 @@ export default function ClaytonLink() {
   const handleLock   = async () => { setCycle(p => ({ ...p, locked: true }));       await db.updateCycle(cycle.id, { locked: true }); };
   const handleDigest = async () => { setCycle(p => ({ ...p, digest_sent: true }));  await db.updateCycle(cycle.id, { digest_sent: true }); };
   const handleAiNudge = async () => {
-    const pending = familiesWithStatus.filter(f => !f.submitted);
+    const pending = pendingMonthly;
     if (!pending.length) return;
     setNudgeDraftLoading(true);
     try {
@@ -1027,8 +1030,9 @@ export default function ClaytonLink() {
       if (!fam) { alert("No family linked to your account. Contact Chris or JaCee."); return; }
       const familyName = fam.name.split(" ").slice(0, 3).join(" ");
 
-      // Enforce per-child event limit
-      const MAX = orgSettings?.max_events_per_child ?? 2;
+      // Enforce per-child event limit — scales with submission cadence
+      const baseMax = orgSettings?.max_events_per_child ?? 2;
+      const MAX = baseMax * cadenceMultiplier(fam.submission_cadence || "monthly");
       const existingPerChild = {};
       myEvents.forEach(e => {
         const key = e.childName?.trim().toLowerCase();
@@ -1092,27 +1096,38 @@ export default function ClaytonLink() {
       </div>
       <div style={card}>
         <h3 style={{ ...serif, fontSize: 18, margin: "0 0 16px" }}>Family Submissions</h3>
-        {familiesWithStatus.map(f => (
-          <div key={f.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 0", borderBottom: `1px solid ${C.border}` }}>
-            <span style={{ fontWeight: 700, fontSize: 14 }}>{f.name}</span>
-            <span style={{ fontSize: 11, fontWeight: 700, padding: "4px 12px", borderRadius: 20, backgroundColor: f.submitted ? C.greenLight : C.terraLight, color: f.submitted ? C.green : C.terra }}>{f.submitted ? "✓ Submitted" : "Pending"}</span>
-          </div>
-        ))}
+        {familiesWithStatus.map(f => {
+          const cadence = f.submission_cadence || "monthly";
+          const cadenceLabel = cadence === "quarterly" ? "Quarterly" : cadence === "biannual" ? "2× / Year" : null;
+          let badge;
+          if (f.submitted) {
+            badge = <span style={{ fontSize: 11, fontWeight: 700, padding: "4px 12px", borderRadius: 20, backgroundColor: C.greenLight, color: C.green }}>✓ Submitted</span>;
+          } else if (cadenceLabel) {
+            badge = <span style={{ fontSize: 11, fontWeight: 700, padding: "4px 12px", borderRadius: 20, backgroundColor: C.brownLight, color: C.brown }}>{cadenceLabel}</span>;
+          } else {
+            badge = <span style={{ fontSize: 11, fontWeight: 700, padding: "4px 12px", borderRadius: 20, backgroundColor: C.terraLight, color: C.terra }}>Pending</span>;
+          }
+          return (
+            <div key={f.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 0", borderBottom: `1px solid ${C.border}` }}>
+              <span style={{ fontWeight: 700, fontSize: 14 }}>{f.name}</span>
+              {badge}
+            </div>
+          );
+        })}
         <div style={{ marginTop: 16, display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-          <span style={{ fontSize: 13, color: C.muted }}>{familiesWithStatus.filter(f => f.submitted).length} of {families.length} submitted</span>
-          {familiesWithStatus.some(f => !f.submitted) && (
+          <span style={{ fontSize: 13, color: C.muted }}>{familiesWithStatus.filter(f => f.submitted).length} of {familiesWithStatus.filter(f => isDueThisCycle(f)).length} monthly submitted</span>
+          {pendingMonthly.length > 0 && (
             <>
               <Btn variant="outline" style={{ padding: "6px 14px", fontSize: 12 }} onClick={() => {
-                const pending = familiesWithStatus.filter(f => !f.submitted).flatMap(f => f.emails).join(",");
+                const emails  = pendingMonthly.flatMap(f => f.emails).join(",");
                 const subject = encodeURIComponent("Reminder — Clayton Link Events Due Soon");
                 const body    = encodeURIComponent(`Hey! Quick reminder to submit your upcoming family events on claytonlink.com. We need events through ${win.max30Label} — at least 14 days notice for Nana and Papa. Thanks!`);
-                window.open(`mailto:${pending}?subject=${subject}&body=${body}`);
+                window.open(`mailto:${emails}?subject=${subject}&body=${body}`);
                 setReminderSent(true);
               }}>{reminderSent ? "✓ Email Sent" : "📧 Nudge via Email"}</Btn>
               <Btn variant="primary" style={{ padding: "6px 14px", fontSize: 12 }} disabled={nudgeDraftLoading} onClick={handleAiNudge}>
                 {nudgeDraftLoading ? "Drafting…" : "✨ AI Nudge"}
               </Btn>
-
             </>
           )}
         </div>
@@ -1197,10 +1212,11 @@ export default function ClaytonLink() {
                     )}
                     {(() => {
                       if (!row.childName) return null;
-                      const MAX = orgSettings?.max_events_per_child ?? 2;
-                      const already  = myEvents.filter(e => e.childName === row.childName).length;
-                      const inForm   = formRows.filter((r, idx) => idx !== i && r.childName === row.childName).length;
-                      const total    = already + inForm;
+                      const baseMax = orgSettings?.max_events_per_child ?? 2;
+                      const MAX     = baseMax * cadenceMultiplier(auth.family?.submission_cadence || "monthly");
+                      const already = myEvents.filter(e => e.childName === row.childName).length;
+                      const inForm  = formRows.filter((r, idx) => idx !== i && r.childName === row.childName).length;
+                      const total   = already + inForm;
                       if (total >= MAX) return <div style={{ fontSize: 11, color: C.red,   marginTop: 5, fontWeight: 700 }}>⚠️ Max {MAX} event{MAX !== 1 ? "s" : ""} reached for {row.childName}</div>;
                       if (total === MAX - 1) return <div style={{ fontSize: 11, color: C.terra, marginTop: 5, fontWeight: 700 }}>This is event {MAX} of {MAX} for {row.childName}</div>;
                       return null;
@@ -1338,7 +1354,7 @@ export default function ClaytonLink() {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: isMobile ? 8 : 12, marginBottom: 16 }}>
         {[{ label: "Events",      v: events.length },
           { label: "Families In", v: familiesWithStatus.filter(f => f.submitted).length },
-          { label: "Pending",     v: familiesWithStatus.filter(f => !f.submitted).length }
+          { label: "Pending",     v: pendingMonthly.length }
         ].map((s, i) => (
           <div key={i} style={{ ...card, textAlign: "center", padding: isMobile ? 12 : 20, marginBottom: 0 }}>
             <div style={{ ...serif, fontSize: isMobile ? 26 : 34, color: C.green, fontWeight: 700 }}>{s.v}</div>

@@ -40,6 +40,7 @@ export default function OrgSettings({ org, orgSettings, actorEmail, onSaved }) {
     digest_signoff:   org?.digest_signoff   || "",
     prompt_body:      org?.prompt_body      || "",
     note_label:       org?.note_label       || "",
+    lookahead_days:   orgSettings?.lookahead_days ?? 30,
   });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved]   = useState(false);
@@ -48,7 +49,11 @@ export default function OrgSettings({ org, orgSettings, actorEmail, onSaved }) {
 
   const handleSave = async () => {
     setSaving(true);
-    await adminDb.updateOrg(draft);
+    const { lookahead_days, ...orgFields } = draft;
+    await Promise.all([
+      adminDb.updateOrg(orgFields),
+      adminDb.updateOrgSettings({ lookahead_days: parseInt(lookahead_days) || 30 }),
+    ]);
     writeAudit(actorEmail, "org.settings.updated", "organization", org?.id, { after: draft });
     setSaving(false);
     setSaved(true);
@@ -92,6 +97,28 @@ export default function OrgSettings({ org, orgSettings, actorEmail, onSaved }) {
             <div>
               <span style={lbl}>Accent Color (highlights, badges)</span>
               <ColorPicker value={draft.accent_color} onChange={v => set("accent_color", v)} />
+            </div>
+          </div>
+
+          {/* Submission Window */}
+          <div style={card}>
+            <h3 style={{ ...serif, fontSize: 17, margin: "0 0 8px", color: C.text }}>Submission Window</h3>
+            <p style={{ fontSize: 13, color: C.muted, margin: "0 0 20px", lineHeight: 1.5 }}>How many days ahead families are asked to submit events. Defaults to 30.</p>
+            <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+              <div style={{ flex: 1 }}>
+                <span style={lbl}>Lookahead Days</span>
+                <input
+                  style={{ ...inp, width: 100 }}
+                  type="number"
+                  min="14"
+                  max="180"
+                  value={draft.lookahead_days}
+                  onChange={e => set("lookahead_days", e.target.value)}
+                />
+              </div>
+              <div style={{ fontSize: 13, color: C.muted, paddingTop: 18, lineHeight: 1.6 }}>
+                Window: today → <strong>{(() => { const d = new Date(); d.setDate(d.getDate() + (parseInt(draft.lookahead_days) || 30)); return d.toLocaleDateString("en-US", { month: "long", day: "numeric" }); })()}</strong>
+              </div>
             </div>
           </div>
 

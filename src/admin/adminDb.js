@@ -149,12 +149,13 @@ export const adminDb = {
     ]);
     if (!groups?.length) return null;
     return groups.map(g => ({
-      id:       g.id,
-      name:     g.name,
-      color:    g.color,
-      phone:    g.phone || "",
-      emails:   (members || []).filter(m => m.group_id === g.id).map(m => m.email),
-      children: (children || []).filter(c => c.group_id === g.id).map(c => c.name),
+      id:                 g.id,
+      name:               g.name,
+      color:              g.color,
+      phone:              g.phone || "",
+      emails:             (members || []).filter(m => m.group_id === g.id).map(m => m.email),
+      children:           (children || []).filter(c => c.group_id === g.id).map(c => c.name),
+      submission_cadence: g.submission_cadence || "monthly",
     }));
   },
   fetchCoordinatorEmails: async () => {

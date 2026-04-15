@@ -54,8 +54,8 @@ export default function GroupDetail({ groupId, actorEmail, onBack }) {
 
   async function handleSave() {
     setSaving(true);
-    await adminDb.updateGroup(groupId, { name: group.name, color: group.color, phone: group.phone, active: group.active });
-    writeAudit(actorEmail, "group.updated", "group", groupId, { after: { name: group.name, color: group.color, phone: group.phone } });
+    await adminDb.updateGroup(groupId, { name: group.name, color: group.color, phone: group.phone, active: group.active, submission_cadence: group.submission_cadence || "monthly" });
+    writeAudit(actorEmail, "group.updated", "group", groupId, { after: { name: group.name, color: group.color, phone: group.phone, submission_cadence: group.submission_cadence } });
     setSaving(false); setSaved(true);
   }
 
@@ -131,9 +131,22 @@ export default function GroupDetail({ groupId, actorEmail, onBack }) {
               <span style={lbl}>Color</span>
               <ColorPicker value={group.color} onChange={v => setField("color", v)} />
             </div>
-            <div style={{ marginBottom: 20 }}>
+            <div style={{ marginBottom: 16 }}>
               <span style={lbl}>Phone</span>
               <input style={inp} value={group.phone || ""} onChange={e => setField("phone", e.target.value)} placeholder="e.g. 18012307075" />
+            </div>
+            <div style={{ marginBottom: 20 }}>
+              <span style={lbl}>Submission Cadence</span>
+              <select style={inp} value={group.submission_cadence || "monthly"} onChange={e => setField("submission_cadence", e.target.value)}>
+                <option value="monthly">Monthly (every cycle)</option>
+                <option value="quarterly">Quarterly (once per quarter)</option>
+                <option value="biannual">Twice a year</option>
+              </select>
+              <div style={{ fontSize: 11, color: C.muted, marginTop: 5, lineHeight: 1.5 }}>
+                {(group.submission_cadence === "quarterly") && "Event limit: 2 per child × 3 months = 6 per cycle. Not shown as Pending between quarters."}
+                {(group.submission_cadence === "biannual") && "Event limit: 2 per child × 6 months = 12 per cycle. Not shown as Pending between submissions."}
+                {(!group.submission_cadence || group.submission_cadence === "monthly") && "Default. Event limit: 2 per child per cycle."}
+              </div>
             </div>
             {/* Active toggle */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 16, borderTop: `1px solid ${C.border}`, marginBottom: 20 }}>
