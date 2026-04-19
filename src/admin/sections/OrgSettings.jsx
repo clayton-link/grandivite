@@ -28,7 +28,7 @@ function ColorPicker({ value, onChange }) {
   );
 }
 
-export default function OrgSettings({ org, orgSettings, actorEmail, onSaved }) {
+export default function OrgSettings({ orgId, org, orgSettings, actorEmail, onSaved }) {
   const [draft, setDraft] = useState({
     name:             org?.name             || "",
     app_title:        org?.app_title        || "",
@@ -51,10 +51,10 @@ export default function OrgSettings({ org, orgSettings, actorEmail, onSaved }) {
     setSaving(true);
     const { lookahead_days, ...orgFields } = draft;
     await Promise.all([
-      adminDb.updateOrg(orgFields),
-      adminDb.updateOrgSettings({ lookahead_days: parseInt(lookahead_days) || 30 }),
+      adminDb.updateOrg(orgId, orgFields),
+      adminDb.updateOrgSettings(orgId, { lookahead_days: parseInt(lookahead_days) || 30 }),
     ]);
-    writeAudit(actorEmail, "org.settings.updated", "organization", org?.id, { after: draft });
+    writeAudit(orgId, actorEmail, "org.settings.updated", "organization", org?.id, { after: draft });
     setSaving(false);
     setSaved(true);
     onSaved?.(draft);
@@ -74,11 +74,11 @@ export default function OrgSettings({ org, orgSettings, actorEmail, onSaved }) {
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
               <div>
                 <span style={lbl}>Organization Name</span>
-                <input style={inp} value={draft.name} onChange={e => set("name", e.target.value)} placeholder="The Clayton Family" />
+                <input style={inp} value={draft.name} onChange={e => set("name", e.target.value)} placeholder="The Henderson Family" />
               </div>
               <div>
                 <span style={lbl}>App Title</span>
-                <input style={inp} value={draft.app_title} onChange={e => set("app_title", e.target.value)} placeholder="Clayton Link" />
+                <input style={inp} value={draft.app_title} onChange={e => set("app_title", e.target.value)} placeholder="Your Family App" />
               </div>
             </div>
             <div>

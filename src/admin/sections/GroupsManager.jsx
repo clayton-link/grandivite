@@ -47,18 +47,18 @@ function AddGroupRow({ onAdd, onCancel }) {
   );
 }
 
-export default function GroupsManager({ actorEmail, onEditGroup }) {
+export default function GroupsManager({ orgId, actorEmail, onEditGroup }) {
   const [groups, setGroups]       = useState([]);
   const [counts, setCounts]       = useState({});
   const [loading, setLoading]     = useState(true);
   const [showAdd, setShowAdd]     = useState(false);
   const [hoverRow, setHoverRow]   = useState(null);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [orgId]);
 
   async function load() {
     setLoading(true);
-    const gs = await adminDb.fetchGroups();
+    const gs = await adminDb.fetchGroups(orgId);
     setGroups(gs);
     // Fetch member + child counts
     const [{ data: members }, { data: children }] = await Promise.all([
@@ -74,15 +74,15 @@ export default function GroupsManager({ actorEmail, onEditGroup }) {
 
   async function handleAdd(fields) {
     const maxOrder = groups.reduce((m, g) => Math.max(m, g.sort_order || 0), 0);
-    const g = await adminDb.createGroup({ ...fields, sort_order: maxOrder + 1 });
-    writeAudit(actorEmail, "group.created", "group", g?.id, { after: fields });
+    const g = await adminDb.createGroup(orgId, { ...fields, sort_order: maxOrder + 1 });
+    writeAudit(orgId, actorEmail, "group.created", "group", g?.id, { after: fields });
     setShowAdd(false);
     load();
   }
 
   async function toggleActive(g) {
     await adminDb.updateGroup(g.id, { active: !g.active });
-    writeAudit(actorEmail, g.active ? "group.deactivated" : "group.activated", "group", g.id, {});
+    writeAudit(orgId, actorEmail, g.active ? "group.deactivated" : "group.activated", "group", g.id, {});
     setGroups(gs => gs.map(x => x.id === g.id ? { ...x, active: !x.active } : x));
   }
 

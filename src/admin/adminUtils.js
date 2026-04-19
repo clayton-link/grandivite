@@ -1,9 +1,9 @@
 import { adminDb } from "./adminDb.js";
 
 // Fire-and-forget audit writer — never blocks a save operation
-export async function writeAudit(actorEmail, action, targetType, targetId, payload) {
+export async function writeAudit(orgId, actorEmail, action, targetType, targetId, payload) {
   try {
-    await adminDb.writeAuditEntry(actorEmail, action, targetType, targetId, payload);
+    await adminDb.writeAuditEntry(orgId, actorEmail, action, targetType, targetId, payload);
   } catch (_) {
     // Intentionally swallowed — audit failure must never surface to user
   }

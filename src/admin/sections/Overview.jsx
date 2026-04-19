@@ -13,13 +13,13 @@ const card  = { backgroundColor: C.white, borderRadius: 16, padding: 24, boxShad
 const QUICK_LINKS = [
   { label: "Organization Settings", icon: "🏢", page: "org",           desc: "Branding, colors, templates" },
   { label: "Groups",                icon: "👨‍👩‍👧‍👦", page: "groups",        desc: "Manage families / teams" },
-  { label: "Recipients",            icon: "📬", page: "recipients",    desc: "Digest audience (Nana & Papa)" },
+  { label: "Recipients",            icon: "📬", page: "recipients",    desc: "Digest audience & recipients" },
   { label: "Members",               icon: "🔑", page: "members",       desc: "Admin & coordinator access" },
   { label: "Notifications",         icon: "🔔", page: "notifications", desc: "Schedule, templates, rules" },
   { label: "Audit Log",             icon: "📋", page: "audit",         desc: "All recent admin activity" },
 ];
 
-export default function Overview({ onNavigate }) {
+export default function Overview({ orgId, onNavigate }) {
   const [stats, setStats]   = useState(null);
   const [log, setLog]       = useState([]);
   const [loading, setLoading] = useState(true);
@@ -27,23 +27,23 @@ export default function Overview({ onNavigate }) {
   useEffect(() => {
     (async () => {
       const [groups, members, log, cycle] = await Promise.all([
-        adminDb.fetchGroups(),
-        adminDb.fetchOrgMembers(),
-        adminDb.fetchAuditLog(8, 0),
-        adminDb.supabase.from("cycles").select("*").order("created_at", { ascending: false }).limit(1).single().then(r => r.data),
+        adminDb.fetchGroups(orgId),
+        adminDb.fetchOrgMembers(orgId),
+        adminDb.fetchAuditLog(orgId, 8, 0),
+        adminDb.fetchLatestCycle(orgId),
       ]);
       setStats({ groups: groups.length, members: members.length, cycle });
       setLog(log);
       setLoading(false);
     })();
-  }, []);
+  }, [orgId]);
 
   if (loading) return <div style={{ padding: 40, color: C.muted, textAlign: "center" }}>Loading…</div>;
 
   return (
     <div>
       <h2 style={{ ...serif, fontSize: 26, color: C.green, margin: "0 0 4px" }}>Dashboard Overview</h2>
-      <p style={{ color: C.muted, margin: "0 0 28px", fontSize: 14 }}>Welcome to the Clayton Link admin.</p>
+      <p style={{ color: C.muted, margin: "0 0 28px", fontSize: 14 }}>Welcome to the Grandivite admin dashboard.</p>
 
       {/* Stat cards */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 24 }}>

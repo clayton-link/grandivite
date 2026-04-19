@@ -11,7 +11,7 @@ const serif = { fontFamily: "'Playfair Display', serif" };
 const card  = { backgroundColor: C.white, borderRadius: 16, padding: 24, boxShadow: "0 2px 20px rgba(44,74,62,0.07)", border: `1px solid ${C.border}`, marginBottom: 16 };
 const inp   = { padding: "10px 14px", borderRadius: 8, border: `1.5px solid ${C.border}`, fontFamily: "'Lato', sans-serif", fontSize: 14, color: C.text, backgroundColor: C.white, outline: "none", boxSizing: "border-box" };
 
-export default function CycleManager({ actorEmail }) {
+export default function CycleManager({ orgId, actorEmail }) {
   const [cycle, setCycle]       = useState(null);
   const [history, setHistory]   = useState([]);
   const [eventCounts, setEventCounts] = useState({});
@@ -19,11 +19,11 @@ export default function CycleManager({ actorEmail }) {
   const [showCreate, setShowCreate] = useState(false);
   const [newLabel, setNewLabel] = useState("");
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [orgId]);
 
   async function load() {
     setLoading(true);
-    const { data: cycles } = await adminDb.supabase.from("cycles").select("*").order("created_at", { ascending: false }).limit(12);
+    const cycles = await adminDb.fetchCycles(orgId);
     const { data: evCounts } = await adminDb.supabase.from("events").select("cycle_id");
     const counts = {};
     (evCounts || []).forEach(e => { counts[e.cycle_id] = (counts[e.cycle_id] || 0) + 1; });
@@ -35,25 +35,24 @@ export default function CycleManager({ actorEmail }) {
   async function createCycle() {
     const label = newLabel.trim();
     if (!label) return;
-    const { data } = await adminDb.supabase.from("cycles").insert({ month_label: label, locked: false, digest_sent: false }).select().single();
-    writeAudit(actorEmail, "cycle.created", "cycle", data?.id, { month_label: label });
+    const data = await adminDb.createCycle(orgId, label);
+    writeAudit(orgId, actorEmail, "cycle.created", "cycle", data?.id, { month_label: label });
     setNewLabel(""); setShowCreate(false);
     load();
   }
 
   async function updateCycle(fields) {
     if (!cycle) return;
-    await adminDb.supabase.from("cycles").update(fields).eq("id", cycle.id);
-    writeAudit(actorEmail, "cycle.updated", "cycle", cycle.id, fields);
+    await adminDb.updateCycle(cycle.id, fields);
+    writeAudit(orgId, actorEmail, "cycle.updated", "cycle", cycle.id, fields);
     setCycle(c => ({ ...c, ...fields }));
   }
 
   async function resetCycle() {
     if (!cycle) return;
     if (!window.confirm("This will permanently delete ALL events in the current cycle and reset it. This cannot be undone. Continue?")) return;
-    await adminDb.supabase.from("events").delete().eq("cycle_id", cycle.id);
-    await adminDb.supabase.from("cycles").update({ locked: false, digest_sent: false }).eq("id", cycle.id);
-    writeAudit(actorEmail, "cycle.reset", "cycle", cycle.id, {});
+    await adminDb.resetCycle(cycle.id);
+    writeAudit(orgId, actorEmail, "cycle.reset", "cycle", cycle.id, {});
     load();
   }
 

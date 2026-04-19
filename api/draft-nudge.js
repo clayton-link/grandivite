@@ -24,7 +24,7 @@ export default async function handler(req, res) {
     return `- ${f.name} (${kids})`;
   }).join("\n");
 
-  const prompt = `Write a short, warm, personalized nudge email for each of these families who haven't yet submitted their upcoming events to Clayton Link, a family coordination app that helps grandparents (Nana and Papa) stay connected to the grandkids.
+  const prompt = `Write a short, warm, personalized nudge email for each of these families who haven't yet submitted their upcoming events to Grandivite, a family coordination app that helps grandparents (Nana and Papa) stay connected to the grandkids.
 
 Events are due by ${max30Label}.
 
@@ -36,7 +36,7 @@ Instructions for each nudge:
 - Mention one or two of their children by name to make it feel personal
 - Warm and friendly tone — not guilt-trippy, not corporate
 - 3–4 sentences max
-- End with a link to claytonlink.com
+- End with a link to grandivite.com
 - Plain text, no subject line, no sign-off needed
 
 Return a valid JSON object where each key is the full family name exactly as given above and the value is the nudge message string. Return ONLY the JSON object, no other text.`;

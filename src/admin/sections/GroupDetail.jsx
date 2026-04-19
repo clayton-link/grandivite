@@ -23,7 +23,7 @@ function ColorPicker({ value, onChange }) {
   );
 }
 
-export default function GroupDetail({ groupId, actorEmail, onBack }) {
+export default function GroupDetail({ orgId, groupId, actorEmail, onBack }) {
   const [group, setGroup]       = useState(null);
   const [members, setMembers]   = useState([]);
   const [children, setChildren] = useState([]);

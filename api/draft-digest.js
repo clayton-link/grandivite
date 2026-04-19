@@ -45,7 +45,7 @@ Write the full email body following these rules:
 - Start with the greeting line on its own
 - Write a short warm intro (2–3 sentences) making Nana and Papa feel excited and loved
 - Describe each event in one or two warm, personal sentences. Lead with milestones, then 1:1 events, then group events. Add extra warmth and celebration for milestones.
-- Close with a sentence inviting them to visit claytonlink.com to RSVP and see the full calendar
+- Close with a sentence inviting them to visit grandivite.com to RSVP and see the full calendar
 - End with the signoff on its own line
 - Plain text only — no markdown, no bullet points, no asterisks
 - Under 350 words total

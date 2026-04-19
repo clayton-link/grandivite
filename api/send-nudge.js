@@ -1,24 +1,9 @@
 import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
 
-// Fallback list used only if the DB query returns nothing
-const FALLBACK_FAMILY_EMAILS = [
-  "pbclayton@gmail.com",
-  "daniellezclayton@yahoo.com",
-  "spenceraffleck@hotmail.com",
-  "kimaffleck@gmail.com",
-  "chrisbclayton@gmail.com",
-  "jaceec@gmail.com",
-  "kkqtpie@gmail.com",
-  "kandeclayton@gmail.com",
-  "kmanclayton@gmail.com",
-  "mitchgill22@gmail.com",
-  "kelcgill@gmail.com",
-];
-
-function getMax30Label() {
+function getWindowLabel(days = 60) {
   const d = new Date();
-  d.setDate(d.getDate() + 30);
+  d.setDate(d.getDate() + days);
   return d.toLocaleDateString("en-US", { month: "long", day: "numeric" });
 }
 
@@ -29,62 +14,69 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: "Unauthorized" });
   }
 
-  // 2. Check toggle in Supabase settings table
   const supabase = createClient(
     process.env.SUPABASE_URL,
     process.env.SUPABASE_SERVICE_ROLE_KEY
   );
-  const { data: settings, error } = await supabase
-    .from("settings").select("auto_nudge_enabled").eq("id", 1).single();
-  if (error) return res.status(500).json({ error: "Failed to fetch settings" });
-  if (!settings?.auto_nudge_enabled) {
-    return res.status(200).json({ skipped: true, reason: "auto_nudge_enabled is false" });
-  }
 
-  // 3. Fetch email list from DB — falls back to hardcoded list if query returns nothing
-  let familyEmails = FALLBACK_FAMILY_EMAILS;
-  try {
+  // 2. Fetch all orgs with auto_nudge_enabled
+  const { data: orgs, error: orgErr } = await supabase
+    .from("org_settings")
+    .select("org_id, auto_nudge_enabled, lookahead_days, nudge_day_of_month")
+    .eq("auto_nudge_enabled", true);
+
+  if (orgErr) return res.status(500).json({ error: "Failed to fetch orgs" });
+  if (!orgs?.length) return res.status(200).json({ skipped: true, reason: "No orgs with nudge enabled" });
+
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  const summary = [];
+
+  for (const orgSettings of orgs) {
+    const { org_id, lookahead_days } = orgSettings;
+    const windowLabel = getWindowLabel(lookahead_days || 60);
+
+    // Fetch org name for email copy
+    const { data: org } = await supabase.from("organizations").select("name, app_title").eq("id", org_id).single();
+    const orgName = org?.app_title || org?.name || "Your Family";
+
+    // Fetch active group emails for this org
+    const { data: groups } = await supabase
+      .from("groups")
+      .select("id, name")
+      .eq("org_id", org_id)
+      .eq("active", true);
+
+    if (!groups?.length) continue;
+
+    const groupIds = groups.map(g => g.id);
     const { data: gmRows } = await supabase
       .from("group_members")
-      .select("email, groups!inner(active, org_id)")
-      .eq("groups.active", true);
-    if (gmRows?.length) {
-      familyEmails = [...new Set(gmRows.map(r => r.email).filter(Boolean))];
+      .select("email, group_id")
+      .in("group_id", groupIds);
+
+    const familyEmails = [...new Set((gmRows || []).map(r => r.email).filter(Boolean))];
+    if (!familyEmails.length) continue;
+
+    const subject = `${orgName} — Please Submit Your Upcoming Events`;
+    const text = `Hey family!\n\nTime to submit your upcoming events on Grandivite.\n\nPlease include events happening through ${windowLabel}.\n\nhttps://grandivite.com\n\nLove, ${orgName}`;
+
+    if (process.env.SEND_EMAILS !== "true") {
+      summary.push({ org_id, dryRun: true, wouldSend: familyEmails, subject });
+      continue;
     }
-  } catch (_) {
-    // Silently use fallback list
+
+    const results = [];
+    for (const email of familyEmails) {
+      const { data, error: sendErr } = await resend.emails.send({
+        from: `${orgName} via Grandivite <noreply@grandivite.com>`,
+        to: [email],
+        subject,
+        text,
+      });
+      results.push({ email, success: !sendErr, id: data?.id });
+    }
+    summary.push({ org_id, sent: results.filter(r => r.success).length });
   }
 
-  const max30Label = getMax30Label();
-  const subject = "Clayton Link — Please Submit Your Upcoming Events";
-  const text = `Hey family!\n\nTime to submit your upcoming events on Clayton Link.\n\nPlease include events happening between now and ${max30Label}. Nana and Papa need at least 14 days notice — 30 is ideal.\n\nUp to 2 events per child.\nhttps://claytonlink.com\n\nLove, Chris & JaCee`;
-
-  // 4. Dry-run guard — set SEND_EMAILS=true in Vercel env vars when ready to go live
-  if (process.env.SEND_EMAILS !== "true") {
-    return res.status(200).json({
-      dryRun: true,
-      reason: "SEND_EMAILS is not set to 'true'",
-      wouldSend: familyEmails,
-      subject,
-    });
-  }
-
-  // 5. Send emails individually so recipients don't see each other's addresses
-  const resend = new Resend(process.env.RESEND_API_KEY);
-  const results = [];
-  for (const email of familyEmails) {
-    const { data, error: sendErr } = await resend.emails.send({
-      from: "Clayton Link <noreply@claytonlink.com>",
-      to: [email],
-      subject,
-      text,
-    });
-    results.push({ email, success: !sendErr, id: data?.id, error: sendErr?.message });
-  }
-
-  return res.status(200).json({
-    sent: results.filter(r => r.success).length,
-    failed: results.filter(r => !r.success).length,
-    results,
-  });
+  return res.status(200).json({ orgsProcessed: orgs.length, summary });
 }

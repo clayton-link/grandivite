@@ -15,7 +15,7 @@ const lbl   = { display: "block", fontSize: 11, fontWeight: 700, letterSpacing: 
 const IMPORTANCE_COLORS = { 3: C.green, 2: C.terra, 1: "#8B6F47" };
 const IMPORTANCE_NAMES  = { 3: "Milestone (⭐⭐⭐)", 2: "1:1 Time (⭐⭐)", 1: "Group Event (⭐)" };
 
-export default function NotificationSettings({ orgSettings, actorEmail }) {
+export default function NotificationSettings({ orgId, orgSettings, actorEmail }) {
   const [draft, setDraft] = useState({
     auto_nudge_enabled:   orgSettings?.auto_nudge_enabled   ?? true,
     nudge_day_of_month:   orgSettings?.nudge_day_of_month   ?? 1,
@@ -37,8 +37,8 @@ export default function NotificationSettings({ orgSettings, actorEmail }) {
 
   async function handleSave() {
     setSaving(true);
-    await adminDb.updateOrgSettings(draft);
-    writeAudit(actorEmail, "org_settings.updated", "org_settings", null, { after: draft });
+    await adminDb.updateOrgSettings(orgId, draft);
+    writeAudit(orgId, actorEmail, "org_settings.updated", "org_settings", null, { after: draft });
     setSaving(false);
     setSaved(true);
   }

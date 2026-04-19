@@ -5,34 +5,51 @@ const supabase = createClient(
   import.meta.env.VITE_SUPABASE_ANON_KEY
 );
 
-export const ORG_ID = "a1b2c3d4-0000-0000-0000-000000000001";
+// ── Multi-tenant helpers ───────────────────────────────────────────────────────
+// All functions accept an explicit orgId — never rely on a hardcoded constant.
 
 export const adminDb = {
+  supabase,
+
+  // Resolve orgId + role for a signed-in user email
+  resolveUserOrg: async (email) => {
+    const { data } = await supabase
+      .from("org_members")
+      .select("org_id, role, is_active, display_name")
+      .eq("email", email.toLowerCase())
+      .eq("is_active", true)
+      .limit(1)
+      .single();
+    return data || null; // { org_id, role, is_active, display_name }
+  },
+
   // ── Organizations ───────────────────────────────────────────────────────────
-  fetchOrg: async () => {
-    const { data } = await supabase.from("organizations").select("*").eq("id", ORG_ID).single();
+  fetchOrg: async (orgId) => {
+    const { data } = await supabase.from("organizations").select("*").eq("id", orgId).single();
     return data;
   },
-  updateOrg: async (fields) => {
-    await supabase.from("organizations").update(fields).eq("id", ORG_ID);
+  updateOrg: async (orgId, fields) => {
+    await supabase.from("organizations").update(fields).eq("id", orgId);
   },
 
   // ── Org Settings ────────────────────────────────────────────────────────────
-  fetchOrgSettings: async () => {
-    const { data } = await supabase.from("org_settings").select("*").eq("org_id", ORG_ID).single();
+  fetchOrgSettings: async (orgId) => {
+    const { data } = await supabase.from("org_settings").select("*").eq("org_id", orgId).single();
     return data;
   },
-  updateOrgSettings: async (fields) => {
-    await supabase.from("org_settings").update({ ...fields, updated_at: new Date().toISOString() }).eq("org_id", ORG_ID);
+  updateOrgSettings: async (orgId, fields) => {
+    await supabase.from("org_settings")
+      .update({ ...fields, updated_at: new Date().toISOString() })
+      .eq("org_id", orgId);
   },
 
   // ── Groups ──────────────────────────────────────────────────────────────────
-  fetchGroups: async () => {
-    const { data } = await supabase.from("groups").select("*").eq("org_id", ORG_ID).order("sort_order");
+  fetchGroups: async (orgId) => {
+    const { data } = await supabase.from("groups").select("*").eq("org_id", orgId).order("sort_order");
     return data || [];
   },
-  createGroup: async (fields) => {
-    const { data } = await supabase.from("groups").insert({ ...fields, org_id: ORG_ID }).select().single();
+  createGroup: async (orgId, fields) => {
+    const { data } = await supabase.from("groups").insert({ ...fields, org_id: orgId }).select().single();
     return data;
   },
   updateGroup: async (id, fields) => {
@@ -75,12 +92,12 @@ export const adminDb = {
   },
 
   // ── Recipient Groups ─────────────────────────────────────────────────────────
-  fetchRecipientGroups: async () => {
-    const { data } = await supabase.from("recipient_groups").select("*").eq("org_id", ORG_ID).order("created_at");
+  fetchRecipientGroups: async (orgId) => {
+    const { data } = await supabase.from("recipient_groups").select("*").eq("org_id", orgId).order("created_at");
     return data || [];
   },
-  createRecipientGroup: async (label) => {
-    const { data } = await supabase.from("recipient_groups").insert({ org_id: ORG_ID, label }).select().single();
+  createRecipientGroup: async (orgId, label) => {
+    const { data } = await supabase.from("recipient_groups").insert({ org_id: orgId, label }).select().single();
     return data;
   },
   updateRecipientGroup: async (id, fields) => {
@@ -107,13 +124,13 @@ export const adminDb = {
   },
 
   // ── Org Members (admin users) ─────────────────────────────────────────────
-  fetchOrgMembers: async () => {
-    const { data } = await supabase.from("org_members").select("*").eq("org_id", ORG_ID).order("created_at");
+  fetchOrgMembers: async (orgId) => {
+    const { data } = await supabase.from("org_members").select("*").eq("org_id", orgId).order("created_at");
     return data || [];
   },
-  upsertOrgMember: async (email, role, displayName) => {
+  upsertOrgMember: async (orgId, email, role, displayName) => {
     const { data } = await supabase.from("org_members").upsert(
-      { org_id: ORG_ID, email, role, display_name: displayName },
+      { org_id: orgId, email, role, display_name: displayName, is_active: true },
       { onConflict: "org_id,email" }
     ).select().single();
     return data;
@@ -125,29 +142,53 @@ export const adminDb = {
     await supabase.from("org_members").delete().eq("id", id);
   },
 
+  // ── Cycles ───────────────────────────────────────────────────────────────────
+  fetchCycles: async (orgId) => {
+    const { data } = await supabase.from("cycles").select("*").eq("org_id", orgId).order("created_at", { ascending: false });
+    return data || [];
+  },
+  fetchLatestCycle: async (orgId) => {
+    const { data } = await supabase.from("cycles").select("*").eq("org_id", orgId).order("created_at", { ascending: false }).limit(1).single();
+    return data;
+  },
+  createCycle: async (orgId, monthLabel) => {
+    const { data } = await supabase.from("cycles").insert({ org_id: orgId, month_label: monthLabel, locked: false, digest_sent: false }).select().single();
+    return data;
+  },
+  updateCycle: async (id, fields) => {
+    await supabase.from("cycles").update(fields).eq("id", id);
+  },
+  resetCycle: async (cycleId) => {
+    await supabase.from("events").delete().eq("cycle_id", cycleId);
+    await supabase.from("cycles").update({ locked: false, digest_sent: false }).eq("id", cycleId);
+  },
+
   // ── Audit Log ────────────────────────────────────────────────────────────────
-  fetchAuditLog: async (limit = 50, offset = 0) => {
-    const { data } = await supabase.from("audit_log").select("*").eq("org_id", ORG_ID)
+  fetchAuditLog: async (orgId, limit = 50, offset = 0) => {
+    const { data } = await supabase.from("audit_log").select("*").eq("org_id", orgId)
       .order("created_at", { ascending: false }).range(offset, offset + limit - 1);
     return data || [];
   },
-  writeAuditEntry: async (actorEmail, action, targetType, targetId, payload) => {
-    await supabase.from("audit_log").insert({
-      org_id: ORG_ID, actor_email: actorEmail, action,
-      target_type: targetType || null, target_id: targetId ? String(targetId) : null,
-      payload: payload || null,
-    });
+  writeAuditEntry: async (orgId, actorEmail, action, targetType, targetId, payload) => {
+    // Fire-and-forget — never throws, never blocks
+    supabase.from("audit_log").insert({
+      org_id:      orgId,
+      actor_email: actorEmail,
+      action,
+      target_type: targetType || null,
+      target_id:   targetId ? String(targetId) : null,
+      payload:     payload || null,
+    }).then(() => {}).catch(() => {});
   },
 
   // ── App-facing helpers (used by main App.jsx) ────────────────────────────────
-  fetchGroupsForApp: async () => {
-    // Returns groups shaped like the hardcoded FAMILIES array
+  fetchGroupsForApp: async (orgId) => {
     const [{ data: groups }, { data: members }, { data: children }] = await Promise.all([
-      supabase.from("groups").select("*").eq("org_id", ORG_ID).eq("active", true).order("sort_order"),
+      supabase.from("groups").select("*").eq("org_id", orgId).eq("active", true).order("sort_order"),
       supabase.from("group_members").select("*"),
       supabase.from("group_children").select("*").order("sort_order"),
     ]);
-    if (!groups?.length) return null;
+    if (!groups?.length) return [];
     return groups.map(g => ({
       id:                 g.id,
       name:               g.name,
@@ -158,13 +199,13 @@ export const adminDb = {
       submission_cadence: g.submission_cadence || "monthly",
     }));
   },
-  fetchCoordinatorEmails: async () => {
+  fetchCoordinatorEmails: async (orgId) => {
     const { data } = await supabase.from("org_members").select("email")
-      .eq("org_id", ORG_ID).in("role", ["owner", "admin"]).eq("is_active", true);
-    return data?.map(r => r.email) || null;
+      .eq("org_id", orgId).in("role", ["owner", "admin"]).eq("is_active", true);
+    return data?.map(r => r.email) || [];
   },
-  fetchDigestRecipients: async () => {
-    const { data: rgs } = await supabase.from("recipient_groups").select("id").eq("org_id", ORG_ID).eq("receives_digest", true);
+  fetchDigestRecipients: async (orgId) => {
+    const { data: rgs } = await supabase.from("recipient_groups").select("id").eq("org_id", orgId).eq("receives_digest", true);
     if (!rgs?.length) return null;
     const { data: recs } = await supabase.from("recipients").select("email,phone").in("recipient_group_id", rgs.map(r => r.id));
     if (!recs?.length) return null;
@@ -173,7 +214,9 @@ export const adminDb = {
       phones: recs.map(r => r.phone).filter(Boolean),
     };
   },
-
-  // Expose supabase client for auth in AdminApp
-  supabase,
+  fetchAllOrgMembers: async (orgId) => {
+    // Returns all active members including family (group) emails — used to gate app access
+    const { data } = await supabase.from("org_members").select("email, role").eq("org_id", orgId).eq("is_active", true);
+    return data || [];
+  },
 };

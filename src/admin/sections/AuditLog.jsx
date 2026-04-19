@@ -30,7 +30,7 @@ function actionBadge(action) {
   );
 }
 
-export default function AuditLog() {
+export default function AuditLog({ orgId }) {
   const [entries, setEntries]   = useState([]);
   const [loading, setLoading]   = useState(true);
   const [offset, setOffset]     = useState(0);
@@ -38,11 +38,11 @@ export default function AuditLog() {
   const [filter, setFilter]     = useState("");
   const PAGE = 50;
 
-  useEffect(() => { load(0); }, []);
+  useEffect(() => { load(0); }, [orgId]);
 
   async function load(o) {
     setLoading(true);
-    const data = await adminDb.fetchAuditLog(PAGE + 1, o);
+    const data = await adminDb.fetchAuditLog(orgId, PAGE + 1, o);
     setHasMore(data.length > PAGE);
     const page = data.slice(0, PAGE);
     setEntries(o === 0 ? page : prev => [...prev, ...page]);

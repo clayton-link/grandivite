@@ -12,43 +12,29 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 // ── GOOGLE MAPS CONFIG ────────────────────────────────────────────────────────
 // Get from: console.cloud.google.com → APIs & Services → Credentials
 // Enable: "Places API (New)" and "Maps JavaScript API" for this key
-// Restrict key to your domain (claytonlink.com) for security
+// Restrict key to your domain for security
 const GOOGLE_MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_KEY;
 // ─────────────────────────────────────────────────────────────────────────────
 
 const C = {
-  cream: "#FDF8F2", green: "#2C4A3E", greenLight: "#E8F0EE",
-  terra: "#E8936A", terraLight: "#FDF0E8", terraBorder: "#F0B898",
+  cream: "#FDFCFA", green: "#2C5F5A", greenLight: "#E5F0EF",
+  terra: "#E07A5F", terraLight: "#FDEEE9", terraBorder: "#F0B898",
   brown: "#8B6F47", brownLight: "#F5EDE3", brownBorder: "#C4A882",
-  greenBorder: "#A8C4BC", white: "#FFFFFF", text: "#2A2A2A",
-  muted: "#7A7A7A", border: "#E8E0D6", red: "#C0392B", redLight: "#FDECEA",
+  greenBorder: "#A8C9C6", white: "#FFFFFF", text: "#1A2A28",
+  muted: "#6B7B79", border: "#E2DAD4", red: "#C0392B", redLight: "#FDECEA",
 };
 
-const FAMILIES = [
-  { id: 1, name: "Paul & Danielle Clayton", color: "#2C4A3E", emails: ["pbclayton@gmail.com", "daniellezclayton@yahoo.com"],  phone: "18016515629", children: ["Paul Z.", "Benjamin", "Ruby", "Calvin", "Toby", "Samuel"] },
-  { id: 2, name: "Spencer & Kim Affleck",   color: "#E8936A", emails: ["spenceraffleck@hotmail.com", "kimaffleck@gmail.com"], phone: "18015992807", children: ["Spencer Jr.", "Russell", "James", "Andrew", "Rachel", "Abigail"] },
-  { id: 3, name: "Chris & JaCee Clayton",   color: "#8B6F47", emails: ["chrisbclayton@gmail.com", "jaceec@gmail.com"],        phone: "18012307075", children: ["Bryson", "Lily", "Landon", "Wesley", "Adalyn"] },
-  { id: 4, name: "Katie Clayton",           color: "#5B8A7A", emails: ["kkqtpie@gmail.com"],                                  phone: "18016411554", children: [] },
-  { id: 5, name: "Kyle & Elise Clayton",    color: "#C46B3A", emails: ["kandeclayton@gmail.com", "kmanclayton@gmail.com"],    phone: "18017079560", children: ["Millie", "Amy", "Daphne", "Kyle R.", "Joshua"] },
-  { id: 6, name: "Mitch & Kelsey Gill",     color: "#6B5B8A", emails: ["mitchgill22@gmail.com", "kelcgill@gmail.com"],        phone: "17857668338", children: ["Bradley", "Henry", "Anthony", "Melanie"] },
-];
-
-// Coordinator access — full admin tabs, send digest, reset month
-const COORDINATOR_EMAILS = ["chrisbclayton@gmail.com", "jaceec@gmail.com", "pbclayton@gmail.com"];
-
-// Both grandparent emails — digest goes to both
-const GRANDPARENTS = { emails: ["pnsleep@gmail.com", "hbeec@gmail.com"], phones: ["18016411684", "18014555654"] };
+// No hardcoded families or coordinator emails — all loaded from DB at runtime
 const BLANK_ROW = () => ({ childName: "", eventName: "", date: "", time: "", location: "", lat: null, lng: null, importance: "", notes: "" });
 
-// Resolve a signed-in Google email to a role + family
-// Accepts dynamic arrays (from DB) — falls back to hardcoded constants
-function resolveAuth(email, fams = FAMILIES, coordEmails = COORDINATOR_EMAILS) {
+// Resolve a signed-in Google email to a role + family using DB-loaded data
+function resolveAuth(email, fams = [], coordEmails = []) {
   if (!email) return null;
   const lower = email.toLowerCase();
   const family = fams.find(f => f.emails.map(e => e.toLowerCase()).includes(lower));
   if (coordEmails.map(e => e.toLowerCase()).includes(lower)) return { role: "coordinator", family: family || null };
   if (family) return { role: "family", family };
-  return null; // email not recognized
+  return null;
 }
 
 // ── HELPERS ───────────────────────────────────────────────────────────────────
@@ -104,9 +90,9 @@ function addToCalendar(ev) {
   const ics = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
-    "PRODID:-//Clayton Link//EN",
+    "PRODID:-////EN",
     "BEGIN:VEVENT",
-    `UID:${e.id}@claytonlink.com`,
+    `UID:${e.id}@grandivite.com`,
     dtProp,
     `SUMMARY:${e.childName}'s ${e.eventName}`,
     location,
@@ -148,7 +134,7 @@ function addToGoogleCalendar(ev) {
     action:   "TEMPLATE",
     text:     `${e.childName}'s ${e.eventName}`,
     dates,
-    details:  e.notes || `From Clayton Link — claytonlink.com`,
+    details:  e.notes || `From  — grandivite.com`,
     location: e.location || "",
   });
   window.open(`https://calendar.google.com/calendar/r/eventedit?${params.toString()}`, "_blank");
@@ -169,20 +155,25 @@ const inp   = { width: "100%", padding: "10px 14px", borderRadius: 8, border: `1
 const lbl   = { display: "block", fontSize: 11, fontWeight: 700, letterSpacing: "0.8px", color: C.muted, textTransform: "uppercase", marginBottom: 6 };
 
 // Normalize DB row (snake_case) → consistent camelCase shape used in UI
-function norm(ev) {
+// familiesRef is optional — if provided, resolves family name from id
+function norm(ev, familiesRef = []) {
   return {
     ...ev,
     childName: ev.child_name  || ev.childName  || "",
     eventName: ev.event_name  || ev.eventName  || "",
     familyId:  ev.family_id   || ev.familyId,
-    family:    (() => { const fid = ev.family_id || ev.familyId; const f = FAMILIES.find(f => f.id === fid); return f ? f.name.split(" ").slice(0, 3).join(" ") : (ev.family_name || ev.family || ""); })(),
+    family:    (() => {
+      const fid = ev.family_id || ev.familyId;
+      const f = familiesRef.find(f => f.id === fid);
+      return f ? f.name.split(" ").slice(0, 3).join(" ") : (ev.family_name || ev.family || "");
+    })(),
   };
 }
 
 // ── SUPABASE DATA LAYER ───────────────────────────────────────────────────────
 const db = {
-  fetchCycle: async () => {
-    const { data } = await supabase.from("cycles").select("*").order("created_at", { ascending: false }).limit(1).single();
+  fetchCycle: async (orgId) => {
+    const { data } = await supabase.from("cycles").select("*").eq("org_id", orgId).order("created_at", { ascending: false }).limit(1).single();
     return data;
   },
   fetchEvents: async (cycleId) => {
@@ -264,7 +255,7 @@ function Spinner() {
   return (
     <div style={{ minHeight: "100vh", backgroundColor: C.green, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16 }}>
       <div style={{ fontSize: 36 }}>🌿</div>
-      <div style={{ color: C.white, fontSize: 15, fontFamily: "'Lato', sans-serif", opacity: 0.8 }}>Loading Clayton Link…</div>
+      <div style={{ color: C.white, fontSize: 15, fontFamily: "'Lato', sans-serif", opacity: 0.8 }}>Loading Grandivite…</div>
     </div>
   );
 }
@@ -414,7 +405,7 @@ function NudgeDraftsModal({ drafts, onDraftChange, pendingFamilies, onClose, isM
               <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
                 <Btn variant="accent" style={{ padding: "6px 14px", fontSize: 12 }} onClick={() => {
                   const to      = encodeURIComponent(f.emails.join(","));
-                  const subject = encodeURIComponent("Quick heads up — Clayton Link events due soon");
+                  const subject = encodeURIComponent("Quick heads up —  events due soon");
                   const body    = encodeURIComponent(drafts[f.name] || "");
                   window.open(`mailto:${to}?subject=${subject}&body=${body}`);
                 }}>📧 Open</Btn>
@@ -609,7 +600,7 @@ function AuthScreen() {
     if (!email.trim()) return;
     const recognized = resolveAuth(email.trim().toLowerCase());
     if (!recognized) {
-      setMagicError("That email isn't registered with Clayton Link. Contact Chris or JaCee.");
+      setMagicError("That email isn't linked to a Grandivite organization. Contact your organization admin.");
       return;
     }
     setMagicLoading(true);
@@ -627,7 +618,7 @@ function AuthScreen() {
     <div style={{ minHeight: "100vh", backgroundColor: C.green, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
       <div style={{ backgroundColor: C.white, borderRadius: 24, padding: "44px 36px", maxWidth: 400, width: "100%", textAlign: "center", boxShadow: "0 24px 80px rgba(0,0,0,0.25)" }}>
         <div style={{ fontSize: 40, marginBottom: 14 }}>🌿</div>
-        <h1 style={{ ...serif, fontSize: 28, color: C.green, margin: "0 0 6px" }}>Clayton Link</h1>
+        <h1 style={{ ...serif, fontSize: 28, color: C.green, margin: "0 0 6px" }}>Grandivite</h1>
         <p style={{ color: C.muted, fontSize: 13, margin: "0 0 28px", lineHeight: 1.6 }}>Sign in to access your family page</p>
 
         <button onClick={signInGoogle} disabled={googleLoading} style={{ width: "100%", padding: "13px 20px", borderRadius: 10, border: `1.5px solid ${C.border}`, backgroundColor: C.white, cursor: googleLoading ? "wait" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 12, fontFamily: "'Lato', sans-serif", fontWeight: 700, fontSize: 14, color: C.text, boxShadow: "0 2px 8px rgba(0,0,0,0.07)", marginBottom: 20 }}>
@@ -661,7 +652,7 @@ function AuthScreen() {
             <button onClick={() => { setMagicSent(false); setEmail(""); }} style={{ background: "none", border: "none", color: C.muted, fontSize: 12, cursor: "pointer", marginTop: 12 }}>Use a different email</button>
           </div>
         )}
-        <p style={{ color: C.muted, fontSize: 11, marginTop: 20, lineHeight: 1.6 }}>Questions? Contact Chris or JaCee.</p>
+        <p style={{ color: C.muted, fontSize: 11, marginTop: 20, lineHeight: 1.6 }}>Questions? Contact your organization admin.</p>
       </div>
     </div>
   );
@@ -697,7 +688,7 @@ function EventCard({ ev, canEdit, onEdit, onRemove, locked, isConflict = false }
   );
 }
 
-function CalendarView({ events, rsvpMap = {}, families = FAMILIES }) {
+function CalendarView({ events, rsvpMap = {}, families = [] }) {
   const isMobile = useIsMobile();
   const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const famColors = Object.fromEntries(families.map(f => [f.id, f.color]));
@@ -714,7 +705,7 @@ function CalendarView({ events, rsvpMap = {}, families = FAMILIES }) {
   return (
     <div>
       <h2 style={{ ...serif, fontSize: 28, color: C.green, margin: "0 0 6px" }}>Family Calendar</h2>
-      <p style={{ color: C.muted, margin: "0 0 20px", lineHeight: 1.6 }}>April 2026 — coordinate before the digest goes to Nana and Papa.</p>
+      <p style={{ color: C.muted, margin: "0 0 20px", lineHeight: 1.6 }}>{cycle?.month_label || 'This Month'} — coordinate before the digest goes out.</p>
       {events.length === 0 && <div style={{ ...card, textAlign: "center", padding: 40, color: C.muted }}>No events submitted yet.</div>}
       {overlapDays.length > 0 && (
         <div style={{ ...card, backgroundColor: C.terraLight, border: `1.5px solid ${C.terraBorder}` }}>
@@ -782,10 +773,11 @@ function CalendarView({ events, rsvpMap = {}, families = FAMILIES }) {
 }
 
 // ── MAIN APP ──────────────────────────────────────────────────────────────────
-export default function ClaytonLink() {
+export default function GrandiviteApp() {
   const [auth, setAuth]                   = useState(null);   // { role, family? }
   const [googleUser, setGoogleUser]       = useState(null);   // Supabase user object
-  const [unrecognized, setUnrecognized]   = useState(false);  // email not in FAMILIES
+  const [orgId, setOrgId]                 = useState(null);   // resolved from org_members
+  const [unrecognized, setUnrecognized]   = useState(false);  // email not in any group
   const [step, setStep]                   = useState(1);
   const [loading, setLoading]             = useState(true);
   const [cycle, setCycle]                 = useState(null);
@@ -798,10 +790,10 @@ export default function ClaytonLink() {
   const [reminderSent, setReminderSent]   = useState(false);
   const [autoNudge, setAutoNudge]         = useState(true);
   const [familyRsvpMap, setFamilyRsvpMap] = useState({});
-  // DB-driven config — initialized to hardcoded constants as fallback
-  const [families, setFamilies]                   = useState(FAMILIES);
-  const [coordinatorEmails, setCoordinatorEmails] = useState(COORDINATOR_EMAILS);
-  const [grandparents, setGrandparents]           = useState(GRANDPARENTS);
+  // All org config from DB — no hardcoded fallbacks
+  const [families, setFamilies]                   = useState([]);
+  const [coordinatorEmails, setCoordinatorEmails] = useState([]);
+  const [grandparents, setGrandparents]           = useState({ emails: [], phones: [] });
   const [orgData, setOrgData]                     = useState(null);
   const [orgSettings, setOrgSettings]             = useState(null);
   // AI draft state
@@ -830,66 +822,77 @@ export default function ClaytonLink() {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
         setGoogleUser(session.user);
-        const resolved = resolveAuth(session.user.email, families, coordinatorEmails);
-        if (resolved) { setAuth(resolved); setStep(resolved.role === "coordinator" ? 1 : 2); }
-        else { setUnrecognized(true); }
+        await loadOrgAndResolveAuth(session.user.email);
+      } else {
+        setLoading(false);
       }
-      const c = await db.fetchCycle();
-      if (c) {
-        setCycle(c);
-        const [evs, rvps, frvps] = await Promise.all([db.fetchEvents(c.id), db.fetchRsvps(), db.fetchFamilyRsvps()]);
-        setEvents(evs);
-        setRsvpMap(rvps);
-        setFamilyRsvpMap(frvps);
-      }
-      const settings = await db.fetchSettings();
-      if (settings != null) setAutoNudge(settings.auto_nudge_enabled);
-
-      // Load org config from DB — falls back to hardcoded constants if tables empty
-      try {
-        const [dbGroups, dbCoords, dbGrand, dbOrg, dbOrgSettings] = await Promise.all([
-          adminDb.fetchGroupsForApp(),
-          adminDb.fetchCoordinatorEmails(),
-          adminDb.fetchDigestRecipients(),
-          adminDb.fetchOrg(),
-          adminDb.fetchOrgSettings(),
-        ]);
-        if (dbGroups?.length)        setFamilies(dbGroups);
-        if (dbCoords?.length)        setCoordinatorEmails(dbCoords);
-        if (dbGrand?.emails?.length) setGrandparents(dbGrand);
-        if (dbOrg)                   setOrgData(dbOrg);
-        if (dbOrgSettings)           setOrgSettings(dbOrgSettings);
-
-        // Re-resolve auth with DB-fresh role lists — auth was resolved above against
-        // hardcoded constants before the DB had loaded, so role changes (e.g. demoting
-        // a coordinator to a regular family member) wouldn't have taken effect yet.
-        if (session?.user) {
-          const freshFamilies = dbGroups?.length ? dbGroups : FAMILIES;
-          const freshCoords   = dbCoords?.length  ? dbCoords  : COORDINATOR_EMAILS;
-          const reResolved    = resolveAuth(session.user.email, freshFamilies, freshCoords);
-          if (reResolved) { setAuth(reResolved); setStep(reResolved.role === "coordinator" ? 1 : 2); }
-          else            { setAuth(null); setUnrecognized(true); }
-        }
-      } catch (_) {
-        // Silently fall back to hardcoded constants — app remains functional
-      }
-
-      setLoading(false);
     })();
 
     // Listen for auth state changes (e.g. after Google redirect)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (session?.user) {
         setGoogleUser(session.user);
-        const resolved = resolveAuth(session.user.email, families, coordinatorEmails);
-        if (resolved) { setAuth(resolved); setStep(resolved.role === "coordinator" ? 1 : 2); }
-        else { setUnrecognized(true); }
+        await loadOrgAndResolveAuth(session.user.email);
       } else {
-        setGoogleUser(null); setAuth(null); setUnrecognized(false);
+        setGoogleUser(null); setAuth(null); setOrgId(null); setUnrecognized(false);
       }
     });
     return () => subscription.unsubscribe();
   }, []);
+
+  async function loadOrgAndResolveAuth(email) {
+    // 1. Resolve user's org from org_members
+    const member = await adminDb.resolveUserOrg(email);
+    if (!member?.org_id) {
+      // User exists in auth but not in any org — redirect to onboarding
+      window.location.href = "/onboarding";
+      return;
+    }
+    const resolvedOrgId = member.org_id;
+    setOrgId(resolvedOrgId);
+
+    // 2. Load all org data in parallel
+    const [dbGroups, dbCoords, dbGrand, dbOrg, dbOrgSettings, cycle] = await Promise.all([
+      adminDb.fetchGroupsForApp(resolvedOrgId),
+      adminDb.fetchCoordinatorEmails(resolvedOrgId),
+      adminDb.fetchDigestRecipients(resolvedOrgId),
+      adminDb.fetchOrg(resolvedOrgId),
+      adminDb.fetchOrgSettings(resolvedOrgId),
+      db.fetchCycle(resolvedOrgId),
+    ]);
+
+    if (dbGroups?.length)        setFamilies(dbGroups);
+    if (dbCoords?.length)        setCoordinatorEmails(dbCoords);
+    if (dbGrand?.emails?.length) setGrandparents(dbGrand);
+    if (dbOrg)                   setOrgData(dbOrg);
+    if (dbOrgSettings)           setOrgSettings(dbOrgSettings);
+
+    // 3. Resolve role from DB data (no hardcoded lists)
+    const resolved = resolveAuth(email, dbGroups || [], dbCoords || []);
+    if (resolved) {
+      setAuth(resolved);
+      setStep(resolved.role === "coordinator" ? 1 : 2);
+    } else {
+      setAuth(null);
+      setUnrecognized(true);
+    }
+
+    // 4. Load cycle + events
+    if (cycle) {
+      setCycle(cycle);
+      const [evs, rvps, frvps] = await Promise.all([
+        db.fetchEvents(cycle.id), db.fetchRsvps(), db.fetchFamilyRsvps(),
+      ]);
+      setEvents(evs);
+      setRsvpMap(rvps);
+      setFamilyRsvpMap(frvps);
+    }
+
+    // 5. Load nudge setting from org_settings
+    if (dbOrgSettings?.auto_nudge_enabled != null) setAutoNudge(dbOrgSettings.auto_nudge_enabled);
+
+    setLoading(false);
+  }
 
   // Real-time subscription — all devices stay in sync automatically
   useEffect(() => {
@@ -905,13 +908,13 @@ export default function ClaytonLink() {
 
   if (loading) return <Spinner />;
 
-  // Email not in FAMILIES or COORDINATOR_EMAILS
+  // Email not in any group for this org
   if (unrecognized) return (
     <div style={{ minHeight: "100vh", backgroundColor: C.green, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
       <div style={{ backgroundColor: C.white, borderRadius: 24, padding: "48px 40px", maxWidth: 380, width: "100%", textAlign: "center", boxShadow: "0 24px 80px rgba(0,0,0,0.25)" }}>
         <div style={{ fontSize: 40, marginBottom: 16 }}>🌿</div>
         <h2 style={{ ...serif, fontSize: 22, color: C.green, margin: "0 0 12px" }}>Not Recognized</h2>
-        <p style={{ color: C.muted, fontSize: 14, lineHeight: 1.7, margin: "0 0 24px" }}>The account <strong>{googleUser?.email}</strong> isn't registered with Clayton Link. Contact Chris or JaCee to get access.</p>
+        <p style={{ color: C.muted, fontSize: 14, lineHeight: 1.7, margin: "0 0 24px" }}>The account <strong>{googleUser?.email}</strong> isn't registered with . Contact your organization admin to get access.</p>
         <Btn variant="outline" full onClick={async () => { await supabase.auth.signOut(); setUnrecognized(false); }}>Sign Out</Btn>
       </div>
     </div>
@@ -929,7 +932,7 @@ export default function ClaytonLink() {
   // Org-configurable copy — falls back to hardcoded strings
   const noteLabel      = orgSettings?.note_label      || "A Note for Nana & Papa (Optional)";
   const digestGreeting = orgData?.digest_greeting      || "Hi Nana and Papa!";
-  const digestSignoff  = orgData?.digest_signoff       || "Love, The Clayton Family";
+  const digestSignoff  = orgData?.digest_signoff       || "Love, The Family";
 
   const submittedFamilyIds  = new Set(events.map(e => e.family_id || e.familyId));
   const cadenceMultiplier   = (c) => c === "quarterly" ? 3 : c === "biannual" ? 6 : 1;
@@ -1027,7 +1030,7 @@ export default function ClaytonLink() {
     }
     try {
       const fam = auth.family;
-      if (!fam) { alert("No family linked to your account. Contact Chris or JaCee."); return; }
+      if (!fam) { alert("No family linked to your account. Contact your organization admin."); return; }
       const familyName = fam.name.split(" ").slice(0, 3).join(" ");
 
       // Enforce per-child event limit — scales with submission cadence
@@ -1120,8 +1123,8 @@ export default function ClaytonLink() {
             <>
               <Btn variant="outline" style={{ padding: "6px 14px", fontSize: 12 }} onClick={() => {
                 const emails  = pendingMonthly.flatMap(f => f.emails).join(",");
-                const subject = encodeURIComponent("Reminder — Clayton Link Events Due Soon");
-                const body    = encodeURIComponent(`Hey! Quick reminder to submit your upcoming family events on claytonlink.com. We need events through ${win.max30Label} — at least 14 days notice for Nana and Papa. Thanks!`);
+                const subject = encodeURIComponent("Reminder —  Events Due Soon");
+                const body    = encodeURIComponent(`Hey! Quick reminder to submit your upcoming family events on grandivite.com. We need events through ${win.max30Label} — at least 14 days notice for Nana and Papa. Thanks!`);
                 window.open(`mailto:${emails}?subject=${subject}&body=${body}`);
                 setReminderSent(true);
               }}>{reminderSent ? "✓ Email Sent" : "📧 Nudge via Email"}</Btn>
@@ -1135,13 +1138,13 @@ export default function ClaytonLink() {
       <div style={card}>
         <h3 style={{ ...serif, fontSize: 18, margin: "0 0 16px" }}>Message Preview</h3>
         <div style={{ backgroundColor: C.cream, borderRadius: 10, padding: 20, borderLeft: `4px solid ${C.terra}`, fontStyle: "italic", color: C.text, lineHeight: 1.8, fontSize: 14 }}>
-          {"Hey family — it's that time! Log into claytonlink.com and submit events happening between now and " + win.max30Label + ". Nana and Papa need at least 14 days notice — ideally 30. Up to 2 per child!"}
+          {"Hey family — it's that time! Log into grandivite.com and submit events happening between now and " + win.max30Label + ". Nana and Papa need at least 14 days notice — ideally 30. Up to 2 per child!"}
         </div>
         <div style={{ marginTop: 16, display: "flex", gap: 10, flexWrap: "wrap" }}>
           <Btn variant={promptSent ? "outline" : "accent"} onClick={() => {
             const emails  = families.flatMap(f => f.emails).join(",");
-            const subject = encodeURIComponent(`Clayton Link — Please Submit Your Upcoming Events`);
-            const body    = encodeURIComponent(`Hey family!\n\nTime to submit your upcoming events on Clayton Link.\n\nPlease include events happening between now and ${win.max30Label}. Nana and Papa need at least 14 days notice — 30 is ideal.\n\nUp to 2 events per child.\nhttps://claytonlink.com\n\nLove, Chris & JaCee`);
+            const subject = encodeURIComponent(` — Please Submit Your Upcoming Events`);
+            const body    = encodeURIComponent(`Hey family!\n\nTime to submit your upcoming events on .\n\nPlease include events happening between now and ${win.max30Label}. Nana and Papa need at least 14 days notice — 30 is ideal.\n\nUp to 2 events per child.\nhttps://grandivite.com\n\nLove, Chris & JaCee`);
             window.open(`mailto:${emails}?subject=${subject}&body=${body}`);
             setPromptSent(true);
           }}>{promptSent ? "✓ Prompt Sent" : "📧 Send via Email"}</Btn>
@@ -1424,22 +1427,22 @@ export default function ClaytonLink() {
                   {aiDraftLoading ? "Drafting…" : "✨ AI Draft"}
                 </Btn>
                 <Btn variant="accent" onClick={() => {
-                  const subject = encodeURIComponent(`The Family's ${cycle?.month_label} Highlights — Clayton Link`);
+                  const subject = encodeURIComponent(`The Family's ${cycle?.month_label} Highlights — `);
                   const lines   = sortedEvents.map(ev => {
                     const imp = ev.importance === 3 ? "⭐⭐⭐ Milestone" : ev.importance === 2 ? "⭐⭐ 1:1 Time" : "⭐ Group Event";
                     return `${imp}\n${ev.childName} — ${ev.eventName}\n${formatDate(ev.date)}${ev.time ? " · " + ev.time : ""}${ev.location ? "\n📍 " + ev.location : ""}${ev.notes ? `\n"${ev.notes}"` : ""}\n`;
                   }).join("\n");
-                  const body    = encodeURIComponent(`${digestGreeting}\n\nHere's what's coming up in ${cycle?.month_label}. We love you!\n\n${lines}\nFull page: https://claytonlink.com\n\n${digestSignoff}`);
+                  const body    = encodeURIComponent(`${digestGreeting}\n\nHere's what's coming up in ${cycle?.month_label}. We love you!\n\n${lines}\nFull page: https://grandivite.com\n\n${digestSignoff}`);
                   window.open(`mailto:${grandparents.emails.join(",")}?subject=${subject}&body=${body}`);
                   handleDigest();
                 }}>📧 Email Digest</Btn>
                 <Btn variant="outline" title="Opens Messages to Nana and Papa only" onClick={() => {
-                  const body = encodeURIComponent(`${digestGreeting} 🌿 The family's ${cycle?.month_label} highlights are ready -- tap to see what's coming up and RSVP! claytonlink.com`);
+                  const body = encodeURIComponent(`${digestGreeting} 🌿 The family's ${cycle?.month_label} highlights are ready -- tap to see what's coming up and RSVP! grandivite.com`);
                   window.open(`sms:${grandparents.phones.join(",")}?body=${body}`);
                   handleDigest();
                 }}>💬 Text Nana & Papa Directly</Btn>
               </>
-            : <div style={{ backgroundColor: C.greenLight, border: `1px solid ${C.green}`, borderRadius: 10, padding: "14px 20px", fontSize: 14, color: C.green, fontWeight: 700 }}>✓ Digest sent to Nana and Papa — {cycle?.month_label} · claytonlink.com</div>
+            : <div style={{ backgroundColor: C.greenLight, border: `1px solid ${C.green}`, borderRadius: 10, padding: "14px 20px", fontSize: 14, color: C.green, fontWeight: 700 }}>✓ Digest sent to Nana and Papa — {cycle?.month_label} · grandivite.com</div>
         }
       </div>
     </div>
@@ -1481,7 +1484,7 @@ export default function ClaytonLink() {
         <div style={{ fontSize: 36, marginBottom: 12 }}>🌿</div>
         <h2 style={{ ...serif, fontSize: 30, margin: "0 0 10px", fontWeight: 700 }}>{digestGreeting}</h2>
         <p style={{ margin: "0 0 16px", opacity: 0.88, fontSize: 15, lineHeight: 1.7 }}>Here's what's coming up with the family this month.<br />We love you and we'd love to share these moments with you.</p>
-        <div style={{ fontSize: 11, opacity: 0.65, letterSpacing: "1.2px", fontWeight: 700 }}>{cycle?.month_label?.toUpperCase()} · CLAYTONLINK.COM</div>
+        <div style={{ fontSize: 11, opacity: 0.65, letterSpacing: "1.2px", fontWeight: 700 }}>{cycle?.month_label?.toUpperCase()} · GRANDIVITE.COM</div>
       </div>
 
       {chronoEvents.map(ev => {
@@ -1551,7 +1554,7 @@ export default function ClaytonLink() {
       })}
 
       <div style={{ ...card, textAlign: "center", backgroundColor: C.greenLight, border: `1.5px solid ${C.green}` }}>
-        <p style={{ color: C.green, margin: 0, lineHeight: 1.8, fontSize: 15 }}>This page lives at <strong>claytonlink.com</strong> — bookmark it!<br /><strong>Questions? Just call or text the family. 💚</strong></p>
+        <p style={{ color: C.green, margin: 0, lineHeight: 1.8, fontSize: 15 }}>This page lives at <strong>grandivite.com</strong> — bookmark it!<br /><strong>Questions? Just call or text the family. 💚</strong></p>
       </div>
     </div>
     );
@@ -1585,7 +1588,7 @@ export default function ClaytonLink() {
           isMobile={isMobile}
           onClose={() => setShowDraftModal(false)}
           onSend={() => {
-            const subject = encodeURIComponent(`The Family's ${cycle?.month_label} Highlights — Clayton Link`);
+            const subject = encodeURIComponent(`The Family's ${cycle?.month_label} Highlights — `);
             window.open(`mailto:${grandparents.emails.join(",")}?subject=${subject}&body=${encodeURIComponent(aiDraft)}`);
             setShowDraftModal(false);
             handleDigest();
@@ -1594,8 +1597,8 @@ export default function ClaytonLink() {
       )}
       <div style={{ backgroundColor: C.white, borderBottom: `1px solid ${C.border}`, padding: `12px ${isMobile ? 14 : 24}px`, display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 100, boxShadow: "0 2px 12px rgba(44,74,62,0.07)", gap: 8 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-          <span style={{ ...serif, fontSize: isMobile ? 17 : 20, color: C.green, fontWeight: 700, whiteSpace: "nowrap" }}>Clayton Link</span>
-          {!isMobile && <span style={{ fontSize: 11, color: C.muted, letterSpacing: "0.5px", fontWeight: 700, whiteSpace: "nowrap" }}>CLAYTONLINK.COM</span>}
+          <span style={{ ...serif, fontSize: isMobile ? 17 : 20, color: C.green, fontWeight: 700, whiteSpace: "nowrap" }}></span>
+          {!isMobile && <span style={{ fontSize: 11, color: C.muted, letterSpacing: "0.5px", fontWeight: 700, whiteSpace: "nowrap" }}>GRANDIVITE.COM</span>}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
           {!isMobile && <span style={{ fontSize: 12, color: C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 200 }}>{googleUser?.email}</span>}
