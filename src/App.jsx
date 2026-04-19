@@ -779,6 +779,7 @@ export default function GrandiviteApp() {
   const [orgId, setOrgId]                 = useState(null);   // resolved from org_members
   const [unrecognized, setUnrecognized]   = useState(false);  // email not in any group
   const [step, setStep]                   = useState(1);
+  useEffect(() => { if (auth) localStorage.setItem("gv_step", step); }, [step, auth]);
   const [loading, setLoading]             = useState(true);
   const [cycle, setCycle]                 = useState(null);
   const [events, setEvents]               = useState([]);
@@ -834,7 +835,7 @@ export default function GrandiviteApp() {
         setGoogleUser(session.user);
         await loadOrgAndResolveAuth(session.user.email);
       } else {
-        setGoogleUser(null); setAuth(null); setOrgId(null); setUnrecognized(false);
+        setGoogleUser(null); setAuth(null); setOrgId(null); setUnrecognized(false); localStorage.removeItem("gv_step");
       }
     });
     return () => subscription.unsubscribe();
@@ -871,7 +872,8 @@ export default function GrandiviteApp() {
     const resolved = resolveAuth(email, dbGroups || [], dbCoords || []);
     if (resolved) {
       setAuth(resolved);
-      setStep(resolved.role === "coordinator" ? 1 : 2);
+      const sv = parseInt(localStorage.getItem("gv_step"));
+      setStep(sv >= (resolved.role === "coordinator" ? 1 : 2) && sv <= 5 ? sv : resolved.role === "coordinator" ? 1 : 2);
     } else {
       setAuth(null);
       setUnrecognized(true);
