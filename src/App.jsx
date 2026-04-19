@@ -139,6 +139,14 @@ function addToGoogleCalendar(ev) {
   });
   window.open(`https://calendar.google.com/calendar/r/eventedit?${params.toString()}`, "_blank");
 }
+function openMapsLink(url) {
+  if (/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+    window.location.href = url;
+  } else {
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
+}
+
 const serif = { fontFamily: "'Playfair Display', serif" };
 const card  = { backgroundColor: C.white, borderRadius: 16, padding: 24, boxShadow: "0 2px 20px rgba(44,74,62,0.07)", border: `1px solid ${C.border}`, marginBottom: 16 };
 
@@ -667,7 +675,7 @@ function EventCard({ ev, canEdit, onEdit, onRemove, locked, isConflict = false }
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 3 }}>{e.childName} — {e.eventName}</div>
         <div style={{ fontSize: 12, color: C.muted, marginBottom: 2 }}>{formatDate(e.date)}{e.time ? ` · ${e.time}` : ""}</div>
-        {e.location && <div style={{ fontSize: 12, marginBottom: 4 }}><a href={e.lat && e.lng ? `https://maps.apple.com/?ll=${e.lat},${e.lng}&q=${encodeURIComponent(e.location)}` : `https://maps.apple.com/?q=${encodeURIComponent(e.location)}`} target="_blank" rel="noreferrer" style={{ color: C.terra, textDecoration: "none", fontWeight: 600 }}>📍 {e.location}</a></div>}
+        {e.location && <div style={{ fontSize: 12, marginBottom: 4 }}><a href="#" onClick={e2 => { e2.preventDefault(); openMapsLink(e.lat && e.lng ? `https://maps.apple.com/?ll=${e.lat},${e.lng}&q=${encodeURIComponent(e.location)}` : `https://maps.apple.com/?q=${encodeURIComponent(e.location)}`); }} style={{ color: C.terra, textDecoration: "none", fontWeight: 600, cursor: "pointer" }}>📍 {e.location}</a></div>}
         {e.notes && <div style={{ fontSize: 13, color: C.text, fontStyle: "italic", lineHeight: 1.5 }}>"{e.notes}"</div>}
         {e.family && <div style={{ fontSize: 11, color: C.muted, marginTop: 4, fontWeight: 700, letterSpacing: "0.4px" }}>FROM {e.family.toUpperCase()}</div>}
         {isConflict && <div style={{ fontSize: 11, color: C.terra, fontWeight: 700, marginTop: 3 }}>⚠️ Another family has an event this day</div>}
@@ -757,7 +765,7 @@ function CalendarView({ events, rsvpMap = {}, families = [] }) {
                   <span style={{ fontWeight: 700, fontSize: 14 }}>{ev.childName} — {ev.eventName}</span>
                   <Badge level={ev.importance} size="sm" />
                 </div>
-                {ev.location && <div style={{ fontSize: 12 }}><a href={ev.lat && ev.lng ? `https://maps.apple.com/?ll=${ev.lat},${ev.lng}&q=${encodeURIComponent(ev.location)}` : `https://maps.apple.com/?q=${encodeURIComponent(ev.location)}`} target="_blank" rel="noreferrer" style={{ color: C.terra, textDecoration: "none" }}>📍 {ev.location}</a></div>}
+                {ev.location && <div style={{ fontSize: 12 }}><a href="#" onClick={e2 => { e2.preventDefault(); openMapsLink(ev.lat && ev.lng ? `https://maps.apple.com/?ll=${ev.lat},${ev.lng}&q=${encodeURIComponent(ev.location)}` : `https://maps.apple.com/?q=${encodeURIComponent(ev.location)}`); }} style={{ color: C.terra, textDecoration: "none", cursor: "pointer" }}>📍 {ev.location}</a></div>}
                 {rsvpMap[ev.id] === "yes"   && <div style={{ fontSize: 11, color: C.green, fontWeight: 700, marginTop: 3 }}>✓ Nana & Papa coming</div>}
                 {rsvpMap[ev.id] === "maybe" && <div style={{ fontSize: 11, color: C.terra, fontWeight: 700, marginTop: 3 }}>◎ Nana & Papa maybe</div>}
               </div>
@@ -1500,7 +1508,7 @@ export default function GrandiviteApp() {
             <h3 style={{ ...serif, fontSize: 21, margin: "0 0 8px", color: C.text }}>{ev.childName}'s {ev.eventName}</h3>
             <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: ev.notes ? 12 : 14 }}>
               {ev.time     && <div style={{ fontSize: 13, color: C.muted }}>🕐 {ev.time}</div>}
-              {ev.location && <div style={{ fontSize: 13 }}><a href={ev.lat && ev.lng ? `https://maps.apple.com/?ll=${ev.lat},${ev.lng}&q=${encodeURIComponent(ev.location)}` : `https://maps.apple.com/?q=${encodeURIComponent(ev.location)}`} target="_blank" rel="noreferrer" style={{ color: C.terra, textDecoration: "none", fontWeight: 700 }}>📍 {ev.location} →</a></div>}
+              {ev.location && <div style={{ fontSize: 13 }}><a href="#" onClick={e2 => { e2.preventDefault(); openMapsLink(ev.lat && ev.lng ? `https://maps.apple.com/?ll=${ev.lat},${ev.lng}&q=${encodeURIComponent(ev.location)}` : `https://maps.apple.com/?q=${encodeURIComponent(ev.location)}`); }} style={{ color: C.terra, textDecoration: "none", fontWeight: 700, cursor: "pointer" }}>📍 {ev.location} →</a></div>}
             </div>
             {ev.notes && <div style={{ padding: "12px 16px", backgroundColor: C.cream, borderRadius: 10, fontSize: 14, color: C.text, lineHeight: 1.7, fontStyle: "italic", marginBottom: 14 }}>"{ev.notes}"</div>}
             <div style={{ padding: "10px 16px", backgroundColor: info.bg, borderRadius: 10, fontSize: 13, color: info.color, fontWeight: 700, borderLeft: `3px solid ${info.color}`, marginBottom: 12 }}>💚 {info.msg}</div>
