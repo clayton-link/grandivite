@@ -1,16 +1,12 @@
--- ============================================================
--- GRANDIVITE — Complete Database Schema
+-- GRANDIVITE: Complete Database Schema
 -- Run this in your Supabase SQL Editor to set up a fresh DB
--- ============================================================
 
--- Enable UUID extension
 create extension if not exists "uuid-ossp";
 
--- ──────────────────────────────────────────────────────────────
 -- ORGANIZATIONS
--- ──────────────────────────────────────────────────────────────
 create table if not exists organizations (
   id              uuid primary key default uuid_generate_v4(),
+  slug            text unique,
   name            text not null,
   app_title       text,
   app_emoji       text default '🌿',
@@ -24,9 +20,7 @@ create table if not exists organizations (
   created_at      timestamptz default now()
 );
 
--- ──────────────────────────────────────────────────────────────
 -- ORG SETTINGS
--- ──────────────────────────────────────────────────────────────
 create table if not exists org_settings (
   id                   serial primary key,
   org_id               uuid not null references organizations(id) on delete cascade,
@@ -38,18 +32,16 @@ create table if not exists org_settings (
   min_notice_days      integer default 7,
   ideal_notice_days    integer default 14,
   importance_3_label   text default 'Milestone',
-  importance_3_msg     text default 'This is a once-in-a-lifetime moment — we''d love you there.',
+  importance_3_msg     text default 'This is a once-in-a-lifetime moment, we''d love you there.',
   importance_2_label   text default '1:1 Time',
-  importance_2_msg     text default 'This is a chance for just you two — it would mean everything to them.',
+  importance_2_msg     text default 'This is a chance for just you two, it would mean everything to them.',
   importance_1_label   text default 'Group Event',
   importance_1_msg     text default 'Come cheer with the whole family!',
   updated_at           timestamptz default now(),
   unique(org_id)
 );
 
--- ──────────────────────────────────────────────────────────────
--- ORG MEMBERS (coordinators, admins, editors, viewers)
--- ──────────────────────────────────────────────────────────────
+-- ORG MEMBERS
 create table if not exists org_members (
   id           serial primary key,
   org_id       uuid not null references organizations(id) on delete cascade,
@@ -61,24 +53,20 @@ create table if not exists org_members (
   unique(org_id, email)
 );
 
--- ──────────────────────────────────────────────────────────────
--- GROUPS (family branches that submit events)
--- ──────────────────────────────────────────────────────────────
+-- GROUPS
 create table if not exists groups (
-  id                  serial primary key,
-  org_id              uuid not null references organizations(id) on delete cascade,
-  name                text not null,
-  color               text default '#2C5F5A',
-  phone               text,
-  active              boolean default true,
-  sort_order          integer default 0,
-  submission_cadence  text default 'monthly' check (submission_cadence in ('monthly','quarterly','biannual')),
-  created_at          timestamptz default now()
+  id                 serial primary key,
+  org_id             uuid not null references organizations(id) on delete cascade,
+  name               text not null,
+  color              text default '#2C5F5A',
+  phone              text,
+  active             boolean default true,
+  sort_order         integer default 0,
+  submission_cadence text default 'monthly' check (submission_cadence in ('monthly','quarterly','biannual')),
+  created_at         timestamptz default now()
 );
 
--- ──────────────────────────────────────────────────────────────
--- GROUP MEMBERS (email addresses per group)
--- ──────────────────────────────────────────────────────────────
+-- GROUP MEMBERS
 create table if not exists group_members (
   id         serial primary key,
   group_id   integer not null references groups(id) on delete cascade,
@@ -88,9 +76,7 @@ create table if not exists group_members (
   unique(group_id, email)
 );
 
--- ──────────────────────────────────────────────────────────────
 -- GROUP CHILDREN
--- ──────────────────────────────────────────────────────────────
 create table if not exists group_children (
   id         serial primary key,
   group_id   integer not null references groups(id) on delete cascade,
@@ -99,9 +85,7 @@ create table if not exists group_children (
   created_at timestamptz default now()
 );
 
--- ──────────────────────────────────────────────────────────────
--- RECIPIENT GROUPS (e.g. "Grandparents", "Aunts & Uncles")
--- ──────────────────────────────────────────────────────────────
+-- RECIPIENT GROUPS
 create table if not exists recipient_groups (
   id              serial primary key,
   org_id          uuid not null references organizations(id) on delete cascade,
@@ -110,22 +94,18 @@ create table if not exists recipient_groups (
   created_at      timestamptz default now()
 );
 
--- ──────────────────────────────────────────────────────────────
--- RECIPIENTS (individuals within a recipient group)
--- ──────────────────────────────────────────────────────────────
+-- RECIPIENTS
 create table if not exists recipients (
-  id                  serial primary key,
-  recipient_group_id  integer not null references recipient_groups(id) on delete cascade,
-  name                text,
-  email               text,
-  phone               text,
-  can_rsvp            boolean default true,
-  created_at          timestamptz default now()
+  id                 serial primary key,
+  recipient_group_id integer not null references recipient_groups(id) on delete cascade,
+  name               text,
+  email              text,
+  phone              text,
+  can_rsvp           boolean default true,
+  created_at         timestamptz default now()
 );
 
--- ──────────────────────────────────────────────────────────────
--- CYCLES (monthly submission windows — org-scoped)
--- ──────────────────────────────────────────────────────────────
+-- CYCLES
 create table if not exists cycles (
   id          serial primary key,
   org_id      uuid not null references organizations(id) on delete cascade,
@@ -135,9 +115,7 @@ create table if not exists cycles (
   created_at  timestamptz default now()
 );
 
--- ──────────────────────────────────────────────────────────────
--- EVENTS (submitted by groups per cycle)
--- ──────────────────────────────────────────────────────────────
+-- EVENTS
 create table if not exists events (
   id          serial primary key,
   cycle_id    integer not null references cycles(id) on delete cascade,
@@ -155,9 +133,7 @@ create table if not exists events (
   created_at  timestamptz default now()
 );
 
--- ──────────────────────────────────────────────────────────────
--- RSVPS (recipient individual RSVPs to events)
--- ──────────────────────────────────────────────────────────────
+-- RSVPS
 create table if not exists rsvps (
   id         serial primary key,
   event_id   integer not null references events(id) on delete cascade,
@@ -166,9 +142,7 @@ create table if not exists rsvps (
   unique(event_id)
 );
 
--- ──────────────────────────────────────────────────────────────
--- FAMILY RSVPS (group-level RSVPs)
--- ──────────────────────────────────────────────────────────────
+-- FAMILY RSVPS
 create table if not exists family_rsvps (
   id         serial primary key,
   event_id   integer not null references events(id) on delete cascade,
@@ -178,9 +152,7 @@ create table if not exists family_rsvps (
   unique(event_id, family_id)
 );
 
--- ──────────────────────────────────────────────────────────────
 -- AUDIT LOG
--- ──────────────────────────────────────────────────────────────
 create table if not exists audit_log (
   id          serial primary key,
   org_id      uuid not null references organizations(id) on delete cascade,
@@ -192,12 +164,7 @@ create table if not exists audit_log (
   created_at  timestamptz default now()
 );
 
--- ──────────────────────────────────────────────────────────────
 -- ROW LEVEL SECURITY
--- Enable RLS on all tables, allow anon key to read/write
--- (relies on Supabase anon key + app-level auth validation)
--- For production, add proper user-based RLS policies.
--- ──────────────────────────────────────────────────────────────
 alter table organizations    enable row level security;
 alter table org_settings     enable row level security;
 alter table org_members      enable row level security;
@@ -212,9 +179,7 @@ alter table rsvps            enable row level security;
 alter table family_rsvps     enable row level security;
 alter table audit_log        enable row level security;
 
--- Permissive policies (tighten per org in production)
--- These let the anon key (with Supabase Auth) read/write all rows.
--- Replace with org-scoped policies once you have Supabase Auth RLS set up.
+-- POLICIES (drop then create, IF NOT EXISTS is not supported for policies)
 do $$
 declare t text;
 begin
@@ -223,20 +188,19 @@ begin
     'group_children','recipient_groups','recipients','cycles','events',
     'rsvps','family_rsvps','audit_log'
   ] loop
-    execute format('
-      create policy if not exists "allow_all_%s" on %I
-      for all using (true) with check (true);
-    ', t, t);
+    execute format('drop policy if exists "allow_all_%s" on %I;', t, t);
+    execute format(
+      'create policy "allow_all_%s" on %I for all using (true) with check (true);',
+      t, t
+    );
   end loop;
 end $$;
 
--- ──────────────────────────────────────────────────────────────
--- INDEXES for common queries
--- ──────────────────────────────────────────────────────────────
-create index if not exists idx_org_members_email on org_members(email);
-create index if not exists idx_org_members_org_id on org_members(org_id);
-create index if not exists idx_groups_org_id on groups(org_id);
-create index if not exists idx_cycles_org_id on cycles(org_id);
-create index if not exists idx_events_cycle_id on events(cycle_id);
-create index if not exists idx_audit_log_org_id on audit_log(org_id);
+-- INDEXES
+create index if not exists idx_org_members_email      on org_members(email);
+create index if not exists idx_org_members_org_id     on org_members(org_id);
+create index if not exists idx_groups_org_id          on groups(org_id);
+create index if not exists idx_cycles_org_id          on cycles(org_id);
+create index if not exists idx_events_cycle_id        on events(cycle_id);
+create index if not exists idx_audit_log_org_id       on audit_log(org_id);
 create index if not exists idx_group_members_group_id on group_members(group_id);

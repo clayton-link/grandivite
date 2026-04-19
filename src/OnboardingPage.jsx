@@ -38,6 +38,12 @@ function generateOrgId() {
   });
 }
 
+function generateSlug(name) {
+  const base = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  const suffix = Math.random().toString(36).slice(2, 6);
+  return `${base}-${suffix}`;
+}
+
 export default function OnboardingPage() {
   const [session, setSession] = useState(undefined);
   const [step, setStep]       = useState(1); // 1=name, 2=branding, 3=first-group, 4=done
@@ -100,6 +106,7 @@ export default function OnboardingPage() {
       // 1. Insert organization
       const { error: orgErr } = await supabase.from("organizations").insert({
         id:            orgId,
+        slug:          generateSlug(orgName.trim()),
         name:          orgName.trim(),
         app_title:     appTitle.trim() || orgName.trim(),
         app_emoji:     emoji,
