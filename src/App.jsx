@@ -530,14 +530,14 @@ function usePlacesAutocomplete(inputRef, onSelect) {
         const ac = new window.google.maps.places.Autocomplete(inputRef.current, {
           types: ["establishment", "geocode"],
           componentRestrictions: { country: "us" },
-          fields: ["formatted_address", "name", "geometry", "place_id"],
+          fields: ["formatted_address", "name", "geometry", "place_id", "vicinity"],
         });
 
         autocompleteRef.current = ac;
         listener = ac.addListener("place_changed", () => {
           const place = ac.getPlace();
           const name = place?.name || "";
-          const addr = place?.formatted_address || "";
+          const addr = place?.formatted_address || place?.vicinity || "";
           const label = name && addr && !addr.startsWith(name) ? `${name}, ${addr}` : (addr || name);
           const lat = place?.geometry?.location?.lat?.() ?? null;
           const lng = place?.geometry?.location?.lng?.() ?? null;
@@ -698,63 +698,140 @@ function EventCard({ ev, canEdit, onEdit, onRemove, locked, isConflict = false }
 
 function CalendarView({ events, rsvpMap = {}, families = [] }) {
   const isMobile = useIsMobile();
-  const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const famColors = Object.fromEntries(families.map(f => [f.id, f.color]));
-  const byDay = {};
-  events.forEach(ev => {
-    const e = norm(ev);
-    const d = parseInt(e.date.split("-")[2]);
-    if (!byDay[d]) byDay[d] = [];
-    byDay[d].push(e);
+
+  const normEvs = events.map(ev => norm(ev));
+  const byDate = {};
+  normEvs.forEach(ev => {
+    if (!ev.date) return;
+    if (!byDate[ev.date]) byDate[ev.date] = [];
+    byDate[ev.date].push(ev);
   });
-  const overlapDays = Object.entries(byDay).filter(([, evs]) => new Set(evs.map(e => e.familyId)).size > 1).map(([d]) => parseInt(d));
-  const cells = [...Array(3).fill(null), ...Array.from({ length: 30 }, (_, i) => i + 1)];
+
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+  const todayYM  = todayStr.slice(0, 7);
+
+  const allDates = normEvs.map(e => e.date).filter(Boolean).sort();
+  const minYM = allDates.length > 0 ? allDates[0].slice(0, 7) : todayYM;
+  const maxYM = allDates.length > 0 ? allDates[allDates.length - 1].slice(0, 7) : todayYM;
+
+  const [viewYM, setViewYM]       = useState(minYM);
+  const [selectedDay, setSelectedDay] = useState(null);
+
+  const [vy, vm] = viewYM.split("-").map(Number);
+  const daysInMonth = new Date(vy, vm, 0).getDate();
+  const startDow    = new Date(vy, vm - 1, 1).getDay();
+  const cells = [...Array(startDow).fill(null), ...Array.from({ length: daysInMonth }, (_, i) => i + 1)];
+  const monthLabel = new Date(vy, vm - 1, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" });
+
+  function changeMonth(delta) {
+    const d = new Date(vy, vm - 1 + delta, 1);
+    setViewYM(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
+    setSelectedDay(null);
+  }
+
+  const selectedEvs = selectedDay ? (byDate[selectedDay] || []) : [];
+  const sortedAll   = [...normEvs].sort((a, b) => a.date.localeCompare(b.date));
+  const DAY_NAMES   = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+  const navBtnStyle = (disabled) => ({
+    background: "none", border: `1.5px solid ${disabled ? C.border : C.green}`,
+    borderRadius: 8, padding: isMobile ? "5px 11px" : "6px 14px",
+    cursor: disabled ? "default" : "pointer", fontSize: 18,
+    color: disabled ? C.border : C.green, fontWeight: 700, lineHeight: 1,
+    opacity: disabled ? 0.35 : 1,
+  });
 
   return (
     <div>
-      <h2 style={{ ...serif, fontSize: 28, color: C.green, margin: "0 0 6px" }}>Family Calendar</h2>
-      <p style={{ color: C.muted, margin: "0 0 20px", lineHeight: 1.6 }}>{cycle?.month_label || 'This Month'} — coordinate before the digest goes out.</p>
-      {events.length === 0 && <div style={{ ...card, textAlign: "center", padding: 40, color: C.muted }}>No events submitted yet.</div>}
-      {overlapDays.length > 0 && (
-        <div style={{ ...card, backgroundColor: C.terraLight, border: `1.5px solid ${C.terraBorder}` }}>
-          <div style={{ fontWeight: 700, color: C.terra, marginBottom: 6, fontSize: 13 }}>⚠️ Overlapping Events</div>
-          <p style={{ margin: 0, fontSize: 13, color: C.text, lineHeight: 1.6 }}>Multiple families have events on {overlapDays.map(d => `April ${d}`).join(" and ")}.</p>
+      <h2 style={{ ...serif, fontSize: 28, color: C.green, margin: "0 0 16px" }}>Family Calendar</h2>
+
+      {families.length > 0 && (
+        <div style={{ ...card, padding: "12px 16px", marginBottom: 16 }}>
+          <div style={lbl}>Families</div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            {families.map(f => (
+              <span key={f.id} style={{ fontSize: 12, fontWeight: 700, padding: "5px 14px", borderRadius: 20, backgroundColor: f.color + "18", color: f.color, border: `1px solid ${f.color}40`, display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}>
+                <span style={{ width: 7, height: 7, borderRadius: "50%", backgroundColor: f.color, flexShrink: 0, display: "inline-block" }} />
+                {f.name}
+              </span>
+            ))}
+          </div>
         </div>
       )}
-      <div style={{ ...card, padding: 16, marginBottom: 16 }}>
-        <div style={lbl}>Families</div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-          {families.map(f => <span key={f.id} style={{ fontSize: 12, fontWeight: 700, padding: "5px 14px", borderRadius: 20, backgroundColor: f.color + "18", color: f.color, border: `1px solid ${f.color}40`, whiteSpace: "nowrap" }}>{f.name}</span>)}
+
+      <div style={{ ...card, padding: isMobile ? 12 : 20 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+          <button onClick={() => viewYM > minYM && changeMonth(-1)} disabled={viewYM <= minYM} style={navBtnStyle(viewYM <= minYM)}>‹</button>
+          <span style={{ ...serif, fontSize: isMobile ? 16 : 18, fontWeight: 700, color: C.text }}>{monthLabel}</span>
+          <button onClick={() => viewYM < maxYM && changeMonth(1)} disabled={viewYM >= maxYM} style={navBtnStyle(viewYM >= maxYM)}>›</button>
         </div>
-      </div>
-      <div style={{ ...card, padding: 16 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2, marginBottom: 4 }}>
-          {DAY_NAMES.map(d => <div key={d} style={{ textAlign: "center", fontSize: 10, fontWeight: 700, color: C.muted, padding: "6px 2px" }}>{d}</div>)}
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: isMobile ? 2 : 4, marginBottom: 4 }}>
+          {DAY_NAMES.map(d => (
+            <div key={d} style={{ textAlign: "center", fontSize: 10, fontWeight: 700, color: C.muted, padding: "4px 0" }}>
+              {isMobile ? d[0] : d}
+            </div>
+          ))}
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2 }}>
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: isMobile ? 2 : 4 }}>
           {cells.map((day, i) => {
-            const dayEvs = day ? (byDay[day] || []) : [];
-            const isOverlap = day && overlapDays.includes(day);
+            const dateStr = day ? `${viewYM}-${String(day).padStart(2, "0")}` : null;
+            const dayEvs  = dateStr ? (byDate[dateStr] || []) : [];
+            const dotColors = [...new Map(dayEvs.map(ev => [ev.familyId, famColors[ev.familyId] || C.green])).values()];
+            const isSelected = dateStr === selectedDay;
+            const isToday    = dateStr === todayStr;
+            const hasEvs     = dayEvs.length > 0;
             return (
-              <div key={i} style={{ minHeight: isMobile ? 44 : 68, borderRadius: 8, padding: isMobile ? "3px 2px" : "4px 3px", backgroundColor: day ? (isOverlap ? C.terraLight : C.cream) : "transparent", border: day ? `1.5px solid ${isOverlap ? C.terraBorder : C.border}` : "none", opacity: day ? 1 : 0 }}>
-                {day && <>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: isOverlap ? C.terra : C.muted, textAlign: "right", marginBottom: 3 }}>{day}</div>
-                  {dayEvs.slice(0, 2).map(ev => (
-                    <div key={ev.id} title={`${ev.childName} — ${ev.eventName}`} style={{ backgroundColor: (famColors[ev.familyId] || C.green) + "22", color: famColors[ev.familyId] || C.green, borderLeft: `3px solid ${famColors[ev.familyId] || C.green}`, borderRadius: 4, padding: "2px 3px", fontSize: isMobile ? 7 : 9, fontWeight: 700, marginBottom: 2, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>
-                      {isMobile ? impInfo(ev.importance).stars.slice(0, 1) : impInfo(ev.importance).stars} {isMobile ? "" : ev.childName}
-                    </div>
+              <div
+                key={i}
+                onClick={() => { if (hasEvs && dateStr) setSelectedDay(isSelected ? null : dateStr); }}
+                style={{
+                  minHeight: isMobile ? 42 : 52,
+                  borderRadius: 8,
+                  padding: isMobile ? "4px 2px" : "6px 4px",
+                  backgroundColor: day ? (isSelected ? C.greenLight : C.cream) : "transparent",
+                  border: day ? `1.5px solid ${isSelected ? C.green : isToday ? C.terra : C.border}` : "none",
+                  cursor: hasEvs ? "pointer" : "default",
+                  display: day ? "flex" : "none",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: 4,
+                  transition: "background 0.15s",
+                  userSelect: "none",
+                }}
+              >
+                <div style={{ fontSize: isMobile ? 11 : 13, fontWeight: isToday ? 800 : 600, color: isToday ? C.terra : (isSelected ? C.green : C.text) }}>
+                  {day}
+                </div>
+                <div style={{ display: "flex", gap: 2, justifyContent: "center", flexWrap: "wrap", minHeight: isMobile ? 5 : 7 }}>
+                  {dotColors.slice(0, 4).map((color, ci) => (
+                    <div key={ci} style={{ width: isMobile ? 5 : 7, height: isMobile ? 5 : 7, borderRadius: "50%", backgroundColor: color, flexShrink: 0 }} />
                   ))}
-                  {dayEvs.length > 2 && <div style={{ fontSize: 9, color: C.muted, fontWeight: 700 }}>+{dayEvs.length - 2}</div>}
-                </>}
+                  {dotColors.length > 4 && <div style={{ fontSize: 7, color: C.muted, fontWeight: 700, lineHeight: "7px" }}>+{dotColors.length - 4}</div>}
+                </div>
               </div>
             );
           })}
         </div>
       </div>
-      {events.length > 0 && (
+
+      {selectedDay && selectedEvs.length > 0 && (
+        <div style={{ ...card, padding: 16, border: `1.5px solid ${C.green}`, marginBottom: 16 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+            <h3 style={{ ...serif, fontSize: 16, margin: 0, color: C.green }}>{formatDate(selectedDay)}</h3>
+            <button onClick={() => setSelectedDay(null)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 20, color: C.muted, lineHeight: 1, padding: "0 4px" }}>×</button>
+          </div>
+          {selectedEvs.map(ev => <EventCard key={ev.id} ev={ev} canEdit={false} locked={true} />)}
+        </div>
+      )}
+
+      {sortedAll.length > 0 && (
         <div style={card}>
-          <h3 style={{ ...serif, fontSize: 18, margin: "0 0 16px" }}>All Events This Month</h3>
-          {[...events].map(norm).sort((a, b) => new Date(a.date) - new Date(b.date)).map(ev => (
+          <h3 style={{ ...serif, fontSize: 18, margin: "0 0 16px" }}>All Events This Cycle</h3>
+          {sortedAll.map(ev => (
             <div key={ev.id} style={{ display: "flex", gap: 14, padding: "14px 0", borderBottom: `1px solid ${C.border}`, alignItems: "flex-start" }}>
               <div style={{ minWidth: 52, flexShrink: 0, textAlign: "center" }}>
                 <div style={{ fontSize: 11, fontWeight: 700, color: famColors[ev.familyId] || C.green }}>{formatShort(ev.date)}</div>
@@ -775,6 +852,10 @@ function CalendarView({ events, rsvpMap = {}, families = [] }) {
             </div>
           ))}
         </div>
+      )}
+
+      {events.length === 0 && (
+        <div style={{ ...card, textAlign: "center", padding: 40, color: C.muted }}>No events submitted yet.</div>
       )}
     </div>
   );
