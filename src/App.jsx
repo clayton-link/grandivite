@@ -1002,10 +1002,19 @@ export default function GrandiviteApp() {
   useEffect(() => {
     if (!cycle?.id) return;
     const channel = supabase.channel("cl-realtime")
-      .on("postgres_changes", { event: "*", schema: "public", table: "events",  filter: `cycle_id=eq.${cycle.id}` }, () => { db.fetchEvents(cycle.id).then(setEvents); })
-      .on("postgres_changes", { event: "*", schema: "public", table: "rsvps"                                       }, () => { db.fetchRsvps().then(setRsvpMap); })
-      .on("postgres_changes", { event: "*", schema: "public", table: "family_rsvps"                               }, () => { db.fetchFamilyRsvps().then(setFamilyRsvpMap); })
-      .on("postgres_changes", { event: "*", schema: "public", table: "cycles",  filter: `id=eq.${cycle.id}`       }, p  => { if (p.new) setCycle(p.new); })
+      .on("postgres_changes", { event: "*",    schema: "public", table: "events",  filter: `cycle_id=eq.${cycle.id}` }, () => { db.fetchEvents(cycle.id).then(setEvents); })
+      .on("postgres_changes", { event: "*",    schema: "public", table: "rsvps"                                       }, () => { db.fetchRsvps().then(setRsvpMap); })
+      .on("postgres_changes", { event: "*",    schema: "public", table: "family_rsvps"                               }, () => { db.fetchFamilyRsvps().then(setFamilyRsvpMap); })
+      .on("postgres_changes", { event: "*",    schema: "public", table: "cycles",  filter: `id=eq.${cycle.id}`       }, p  => { if (p.new) setCycle(p.new); })
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "cycles" }, async () => {
+        const newCycle = await db.fetchCycle(orgId);
+        if (newCycle && newCycle.id !== cycle.id) {
+          setCycle(newCycle);
+          const [evs, rvps, frvps] = await Promise.all([db.fetchEvents(newCycle.id), db.fetchRsvps(), db.fetchFamilyRsvps()]);
+          setEvents(evs); setRsvpMap(rvps); setFamilyRsvpMap(frvps);
+          setFormRows([BLANK_ROW()]); setFormSubmitted(false);
+        }
+      })
       .subscribe();
     return () => supabase.removeChannel(channel);
   }, [cycle?.id]);
