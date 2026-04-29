@@ -134,7 +134,7 @@ function addToGoogleCalendar(ev) {
     action:   "TEMPLATE",
     text:     `${e.childName}'s ${e.eventName}`,
     dates,
-    details:  e.notes || `From  — grandivite.com`,
+    details:  e.notes || `From ${e.family || "the family"} — grandivite.com`,
     location: e.location || "",
   });
   window.open(`https://calendar.google.com/calendar/r/eventedit?${params.toString()}`, "_blank");
@@ -413,7 +413,7 @@ function NudgeDraftsModal({ drafts, onDraftChange, pendingFamilies, onClose, isM
               <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
                 <Btn variant="accent" style={{ padding: "6px 14px", fontSize: 12 }} onClick={() => {
                   const to      = encodeURIComponent(f.emails.join(","));
-                  const subject = encodeURIComponent("Quick heads up —  events due soon");
+                  const subject = encodeURIComponent("Quick heads up — events due soon");
                   const body    = encodeURIComponent(drafts[f.name] || "");
                   window.open(`mailto:${to}?subject=${subject}&body=${body}`);
                 }}>📧 Open</Btn>
@@ -716,8 +716,13 @@ function CalendarView({ events, rsvpMap = {}, families = [] }) {
   const minYM = allDates.length > 0 ? allDates[0].slice(0, 7) : todayYM;
   const maxYM = allDates.length > 0 ? allDates[allDates.length - 1].slice(0, 7) : todayYM;
 
-  const [viewYM, setViewYM]       = useState(minYM);
+  const [viewYM, setViewYM]           = useState(minYM);
   const [selectedDay, setSelectedDay] = useState(null);
+  const [hasNavigated, setHasNavigated] = useState(false);
+
+  useEffect(() => {
+    if (!hasNavigated) setViewYM(minYM);
+  }, [minYM]);
 
   const [vy, vm] = viewYM.split("-").map(Number);
   const daysInMonth = new Date(vy, vm, 0).getDate();
@@ -726,6 +731,7 @@ function CalendarView({ events, rsvpMap = {}, families = [] }) {
   const monthLabel = new Date(vy, vm - 1, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" });
 
   function changeMonth(delta) {
+    setHasNavigated(true);
     const d = new Date(vy, vm - 1 + delta, 1);
     setViewYM(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
     setSelectedDay(null);
@@ -1020,6 +1026,7 @@ export default function GrandiviteApp() {
 
   // Dynamic date window — recomputes on every render (i.e. always today)
   const win = getWindowDates(orgSettings?.lookahead_days || 30);
+  const todayISO = (() => { const t = win.today; return `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,"0")}-${String(t.getDate()).padStart(2,"0")}`; })();
 
   // Org-configurable copy — falls back to hardcoded strings
   const noteLabel      = orgSettings?.note_label      || "A Note for Nana & Papa (Optional)";
@@ -1151,14 +1158,19 @@ export default function GrandiviteApp() {
       }
       if (!toSubmit.length) return;
 
-      for (const row of toSubmit) {
-        const data = await db.insertEvent(cycle.id, fam.id, familyName, row);
-        if (data) setEvents(p => [...p, data]);
+      const results = await Promise.allSettled(
+        toSubmit.map(row => db.insertEvent(cycle.id, fam.id, familyName, row))
+      );
+      const saved = results.filter(r => r.status === "fulfilled" && r.value).map(r => r.value);
+      const failCount = toSubmit.length - saved.length;
+      saved.forEach(data => setEvents(p => [...p, data]));
+      if (failCount > 0) {
+        alert(`${saved.length} event${saved.length !== 1 ? "s" : ""} saved, but ${failCount} couldn't be saved — please try submitting again.`);
       }
-      setFormSubmitted(true);
+      if (saved.length > 0) setFormSubmitted(true);
     } catch (err) {
       console.error("Submit failed:", err);
-      alert("Something went wrong saving your events. Please try again or contact Chris.");
+      alert("Something went wrong saving your events. Please try again.");
     }
   };
   const updateRow = (i, f, v) => setFormRows(rows => rows.map((r, idx) => idx === i ? { ...r, [f]: v } : r));
@@ -1234,9 +1246,10 @@ export default function GrandiviteApp() {
         </div>
         <div style={{ marginTop: 16, display: "flex", gap: 10, flexWrap: "wrap" }}>
           <Btn variant={promptSent ? "outline" : "accent"} onClick={() => {
+            const orgName = orgData?.name || "Grandivite";
             const emails  = families.flatMap(f => f.emails).join(",");
-            const subject = encodeURIComponent(` — Please Submit Your Upcoming Events`);
-            const body    = encodeURIComponent(`Hey family!\n\nTime to submit your upcoming events on .\n\nPlease include events happening between now and ${win.max30Label}. Nana and Papa need at least 14 days notice — 30 is ideal.\n\nUp to 2 events per child.\nhttps://grandivite.com\n\nLove, Chris & JaCee`);
+            const subject = encodeURIComponent(`${orgName} — Please Submit Your Upcoming Events`);
+            const body    = encodeURIComponent(`Hey family!\n\nTime to submit your upcoming events on ${orgName}.\n\nPlease include events happening between now and ${win.max30Label}. Nana and Papa need at least 14 days notice — 30 is ideal.\n\nUp to 2 events per child.\nhttps://grandivite.com\n\n${digestSignoff}`);
             window.open(`mailto:${emails}?subject=${subject}&body=${body}`);
             setPromptSent(true);
           }}>{promptSent ? "✓ Prompt Sent" : "📧 Send via Email"}</Btn>
@@ -1319,7 +1332,7 @@ export default function GrandiviteApp() {
                   </div>
                   <div><span style={lbl}>Event / Activity</span><input style={inp} placeholder="e.g. Spring Play" value={row.eventName} onChange={e => updateRow(i, "eventName", e.target.value)} /></div>
                 </div>
-                <div style={{ marginBottom: 16 }}><span style={lbl}>Date</span><input style={{ ...inp, display: "block", width: "100%" }} type="date" value={row.date} onChange={e => updateRow(i, "date", e.target.value)} /></div>
+                <div style={{ marginBottom: 16 }}><span style={lbl}>Date</span><input style={{ ...inp, display: "block", width: "100%" }} type="date" min={todayISO} value={row.date} onChange={e => updateRow(i, "date", e.target.value)} /></div>
                 <div style={{ marginBottom: 16 }}><span style={lbl}>Time (Optional)</span><input style={{ ...inp, display: "block", width: "100%" }} type="text" placeholder="e.g. 6:30 PM" value={row.time} onChange={e => updateRow(i, "time", e.target.value)} /></div>
                 <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 16, marginBottom: 16 }}>
                   <div>
@@ -1689,7 +1702,7 @@ export default function GrandiviteApp() {
       )}
       <div style={{ backgroundColor: C.white, borderBottom: `1px solid ${C.border}`, padding: `12px ${isMobile ? 14 : 24}px`, display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 100, boxShadow: "0 2px 12px rgba(44,74,62,0.07)", gap: 8 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-          <span style={{ ...serif, fontSize: isMobile ? 17 : 20, color: C.green, fontWeight: 700, whiteSpace: "nowrap" }}></span>
+          <span style={{ ...serif, fontSize: isMobile ? 17 : 20, color: C.green, fontWeight: 700, whiteSpace: "nowrap" }}>{orgData?.app_title || orgData?.name || "Grandivite"}</span>
           {!isMobile && <span style={{ fontSize: 11, color: C.muted, letterSpacing: "0.5px", fontWeight: 700, whiteSpace: "nowrap" }}>GRANDIVITE.COM</span>}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>

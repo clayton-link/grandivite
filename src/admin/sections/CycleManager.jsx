@@ -24,7 +24,10 @@ export default function CycleManager({ orgId, actorEmail }) {
   async function load() {
     setLoading(true);
     const cycles = await adminDb.fetchCycles(orgId);
-    const { data: evCounts } = await adminDb.supabase.from("events").select("cycle_id");
+    const cycleIds = (cycles || []).map(c => c.id);
+    const { data: evCounts } = cycleIds.length
+      ? await adminDb.supabase.from("events").select("cycle_id").in("cycle_id", cycleIds)
+      : { data: [] };
     const counts = {};
     (evCounts || []).forEach(e => { counts[e.cycle_id] = (counts[e.cycle_id] || 0) + 1; });
     setEventCounts(counts);
