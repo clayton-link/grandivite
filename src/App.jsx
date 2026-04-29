@@ -184,6 +184,10 @@ const db = {
     const { data } = await supabase.from("cycles").select("*").eq("org_id", orgId).order("created_at", { ascending: false }).limit(1).single();
     return data;
   },
+  fetchAllCycles: async (orgId) => {
+    const { data } = await supabase.from("cycles").select("*").eq("org_id", orgId).order("created_at", { ascending: false });
+    return data || [];
+  },
   fetchEvents: async (cycleId) => {
     const { data } = await supabase.from("events").select("*").eq("cycle_id", cycleId);
     return data || [];
@@ -884,6 +888,8 @@ export default function GrandiviteApp() {
   useEffect(() => { if (auth) localStorage.setItem("gv_step", step); }, [step, auth]);
   const [loading, setLoading]             = useState(true);
   const [cycle, setCycle]                 = useState(null);
+  const [allCycles, setAllCycles]         = useState([]);
+  const [promptCycleId, setPromptCycleId] = useState(null);
   const [events, setEvents]               = useState([]);
   const [rsvpMap, setRsvpMap]             = useState({});
   const [editingEvent, setEditingEvent]   = useState(null);
@@ -955,14 +961,16 @@ export default function GrandiviteApp() {
     setOrgId(resolvedOrgId);
 
     // 2. Load all org data in parallel
-    const [dbGroups, dbCoords, dbGrand, dbOrg, dbOrgSettings, cycle] = await Promise.all([
+    const [dbGroups, dbCoords, dbGrand, dbOrg, dbOrgSettings, cycle, cycles] = await Promise.all([
       adminDb.fetchGroupsForApp(resolvedOrgId),
       adminDb.fetchCoordinatorEmails(resolvedOrgId),
       adminDb.fetchDigestRecipients(resolvedOrgId),
       adminDb.fetchOrg(resolvedOrgId),
       adminDb.fetchOrgSettings(resolvedOrgId),
       db.fetchCycle(resolvedOrgId),
+      db.fetchAllCycles(resolvedOrgId),
     ]);
+    if (cycles?.length) setAllCycles(cycles);
 
     if (dbGroups?.length)        setFamilies(dbGroups);
     if (dbCoords?.length)        setCoordinatorEmails(dbCoords);
@@ -984,6 +992,7 @@ export default function GrandiviteApp() {
     // 4. Load cycle + events
     if (cycle) {
       setCycle(cycle);
+      setPromptCycleId(cycle.id);
       const [evs, rvps, frvps] = await Promise.all([
         db.fetchEvents(cycle.id), db.fetchRsvps(), db.fetchFamilyRsvps(),
       ]);
@@ -1007,9 +1016,11 @@ export default function GrandiviteApp() {
       .on("postgres_changes", { event: "*",    schema: "public", table: "family_rsvps"                               }, () => { db.fetchFamilyRsvps().then(setFamilyRsvpMap); })
       .on("postgres_changes", { event: "*",    schema: "public", table: "cycles",  filter: `id=eq.${cycle.id}`       }, p  => { if (p.new) setCycle(p.new); })
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "cycles" }, async () => {
-        const newCycle = await db.fetchCycle(orgId);
+        const [newCycle, cycles] = await Promise.all([db.fetchCycle(orgId), db.fetchAllCycles(orgId)]);
+        if (cycles?.length) setAllCycles(cycles);
         if (newCycle && newCycle.id !== cycle.id) {
           setCycle(newCycle);
+          setPromptCycleId(newCycle.id);
           const [evs, rvps, frvps] = await Promise.all([db.fetchEvents(newCycle.id), db.fetchRsvps(), db.fetchFamilyRsvps()]);
           setEvents(evs); setRsvpMap(rvps); setFamilyRsvpMap(frvps);
           setFormRows([BLANK_ROW()]); setFormSubmitted(false);
@@ -1199,15 +1210,24 @@ export default function GrandiviteApp() {
     : [{ n: 2, label: "Submit Events" }, { n: 5, label: "📅 Family Calendar" }];
 
   // ── STEP 1 ────────────────────────────────────────────────────────────────
+  const promptCycle = allCycles.find(c => c.id === promptCycleId) || cycle;
   const Step1 = () => (
     <div>
       <h2 style={{ ...serif, fontSize: 28, color: C.green, margin: "0 0 6px" }}>Monthly Prompt</h2>
-      <p style={{ color: C.muted, margin: "0 0 24px", lineHeight: 1.6 }}>Send the monthly request to all families.</p>
+      <p style={{ color: C.muted, margin: "0 0 16px", lineHeight: 1.6 }}>Send the monthly request to all families.</p>
+      {allCycles.length > 1 && (
+        <div style={{ ...card, padding: "12px 16px", marginBottom: 16 }}>
+          <div style={lbl}>Sending prompt for cycle</div>
+          <select style={{ ...inp, width: "100%" }} value={promptCycleId || ""} onChange={e => setPromptCycleId(Number(e.target.value))}>
+            {allCycles.map(c => <option key={c.id} value={c.id}>{c.month_label}{c.id === cycle?.id ? " (current)" : ""}</option>)}
+          </select>
+        </div>
+      )}
       <div style={{ ...card, backgroundColor: C.green, color: C.white }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12, marginBottom: 16 }}>
           <div>
             <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "1px", opacity: 0.65, marginBottom: 4 }}>SENDING TODAY</div>
-            <div style={{ ...serif, fontSize: 22, fontWeight: 600 }}>{win.monthLabel}</div>
+            <div style={{ ...serif, fontSize: 22, fontWeight: 600 }}>{promptCycle?.month_label || win.monthLabel}</div>
             <div style={{ fontSize: 13, opacity: 0.8, marginTop: 4 }}>Events window: {win.windowLabel}</div>
           </div>
           <div style={{ textAlign: "right" }}>
@@ -1265,10 +1285,11 @@ export default function GrandiviteApp() {
         </div>
         <div style={{ marginTop: 16, display: "flex", gap: 10, flexWrap: "wrap" }}>
           <Btn variant={promptSent ? "outline" : "accent"} onClick={() => {
-            const orgName = orgData?.name || "Grandivite";
+            const orgName    = orgData?.name || "Grandivite";
+            const cycleLabel = promptCycle?.month_label || win.monthLabel;
             const emails  = families.flatMap(f => f.emails).join(",");
-            const subject = encodeURIComponent(`${orgName} — Please Submit Your Upcoming Events`);
-            const body    = encodeURIComponent(`Hey family!\n\nTime to submit your upcoming events on ${orgName}.\n\nPlease include events happening between now and ${win.max30Label}. Nana and Papa need at least 14 days notice — 30 is ideal.\n\nUp to 2 events per child.\nhttps://grandivite.com\n\n${digestSignoff}`);
+            const subject = encodeURIComponent(`${orgName} — Please Submit Your ${cycleLabel} Events`);
+            const body    = encodeURIComponent(`Hey family!\n\nTime to submit your upcoming events on ${orgName} for ${cycleLabel}.\n\nPlease include events happening between now and ${win.max30Label}. Nana and Papa need at least 14 days notice — 30 is ideal.\n\nUp to 2 events per child.\nhttps://grandivite.com\n\n${digestSignoff}`);
             window.open(`mailto:${emails}?subject=${subject}&body=${body}`);
             setPromptSent(true);
           }}>{promptSent ? "✓ Prompt Sent" : "📧 Send via Email"}</Btn>
