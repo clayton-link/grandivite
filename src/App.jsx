@@ -1210,7 +1210,7 @@ export default function GrandiviteApp() {
     : [{ n: 2, label: "Submit Events" }, { n: 5, label: "📅 Family Calendar" }];
 
   // ── STEP 1 ────────────────────────────────────────────────────────────────
-  const promptCycle = allCycles.find(c => c.id === promptCycleId) || cycle;
+  const promptCycle = allCycles.find(c => String(c.id) === String(promptCycleId)) || cycle;
   const Step1 = () => (
     <div>
       <h2 style={{ ...serif, fontSize: 28, color: C.green, margin: "0 0 6px" }}>Monthly Prompt</h2>
@@ -1218,8 +1218,8 @@ export default function GrandiviteApp() {
       {allCycles.length > 1 && (
         <div style={{ ...card, padding: "12px 16px", marginBottom: 16 }}>
           <div style={lbl}>Sending prompt for cycle</div>
-          <select style={{ ...inp, width: "100%" }} value={promptCycleId || ""} onChange={e => setPromptCycleId(Number(e.target.value))}>
-            {allCycles.map(c => <option key={c.id} value={c.id}>{c.month_label}{c.id === cycle?.id ? " (current)" : ""}</option>)}
+          <select style={{ ...inp, width: "100%" }} value={String(promptCycleId ?? "")} onChange={e => setPromptCycleId(e.target.value)}>
+            {allCycles.map(c => <option key={c.id} value={String(c.id)}>{c.month_label}{c.id === cycle?.id ? " (current)" : ""}</option>)}
           </select>
         </div>
       )}
