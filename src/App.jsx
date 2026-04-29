@@ -1062,8 +1062,23 @@ export default function GrandiviteApp() {
   const submittedFamilyIds  = new Set(events.map(e => e.family_id || e.familyId));
   const cadenceMultiplier   = (c) => c === "quarterly" ? 3 : c === "biannual" ? 6 : 1;
   const isDueThisCycle      = (f) => (f.submission_cadence || "monthly") === "monthly";
-  const familiesWithStatus  = families.map(f => ({ ...f, submitted: submittedFamilyIds.has(f.id) }));
-  const pendingMonthly      = familiesWithStatus.filter(f => isDueThisCycle(f) && !f.submitted);
+
+  const hasUpcomingEventsInWindow = (familyId, months) => {
+    const cutoff = new Date();
+    cutoff.setMonth(cutoff.getMonth() + months);
+    const cutoffStr = `${cutoff.getFullYear()}-${String(cutoff.getMonth()+1).padStart(2,"0")}-${String(cutoff.getDate()).padStart(2,"0")}`;
+    return events.some(ev => (ev.family_id || ev.familyId) === familyId && ev.date >= todayISO && ev.date <= cutoffStr);
+  };
+
+  const familiesWithStatus = families.map(f => {
+    const cadence   = f.submission_cadence || "monthly";
+    const submitted = submittedFamilyIds.has(f.id);
+    const needsNudge = cadence === "monthly"
+      ? !submitted
+      : !hasUpcomingEventsInWindow(f.id, cadenceMultiplier(cadence));
+    return { ...f, submitted, needsNudge };
+  });
+  const pendingMonthly = familiesWithStatus.filter(f => f.needsNudge);
   const sortedEvents       = [...events].map(norm).sort((a, b) => b.importance - a.importance || new Date(a.date) - new Date(b.date));
   const myEvents           = events.filter(e => (e.family_id || e.familyId) === auth.family?.id).map(norm);
 
@@ -1246,12 +1261,14 @@ export default function GrandiviteApp() {
           const cadence = f.submission_cadence || "monthly";
           const cadenceLabel = cadence === "quarterly" ? "Quarterly" : cadence === "biannual" ? "2× / Year" : null;
           let badge;
-          if (f.submitted) {
-            badge = <span style={{ fontSize: 11, fontWeight: 700, padding: "4px 12px", borderRadius: 20, backgroundColor: C.greenLight, color: C.green }}>✓ Submitted</span>;
-          } else if (cadenceLabel) {
-            badge = <span style={{ fontSize: 11, fontWeight: 700, padding: "4px 12px", borderRadius: 20, backgroundColor: C.brownLight, color: C.brown }}>{cadenceLabel}</span>;
+          if (cadence === "monthly") {
+            badge = f.submitted
+              ? <span style={{ fontSize: 11, fontWeight: 700, padding: "4px 12px", borderRadius: 20, backgroundColor: C.greenLight, color: C.green }}>✓ Submitted</span>
+              : <span style={{ fontSize: 11, fontWeight: 700, padding: "4px 12px", borderRadius: 20, backgroundColor: C.terraLight, color: C.terra }}>Pending</span>;
           } else {
-            badge = <span style={{ fontSize: 11, fontWeight: 700, padding: "4px 12px", borderRadius: 20, backgroundColor: C.terraLight, color: C.terra }}>Pending</span>;
+            badge = f.needsNudge
+              ? <span style={{ fontSize: 11, fontWeight: 700, padding: "4px 12px", borderRadius: 20, backgroundColor: C.terraLight, color: C.terra }}>{cadenceLabel} · Needs Events</span>
+              : <span style={{ fontSize: 11, fontWeight: 700, padding: "4px 12px", borderRadius: 20, backgroundColor: C.greenLight, color: C.green }}>{cadenceLabel} · Scheduled</span>;
           }
           return (
             <div key={f.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 0", borderBottom: `1px solid ${C.border}` }}>
@@ -1261,7 +1278,7 @@ export default function GrandiviteApp() {
           );
         })}
         <div style={{ marginTop: 16, display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-          <span style={{ fontSize: 13, color: C.muted }}>{familiesWithStatus.filter(f => f.submitted).length} of {familiesWithStatus.filter(f => isDueThisCycle(f)).length} monthly submitted</span>
+          <span style={{ fontSize: 13, color: C.muted }}>{familiesWithStatus.filter(f => !f.needsNudge).length} of {familiesWithStatus.length} families covered</span>
           {pendingMonthly.length > 0 && (
             <>
               <Btn variant="outline" style={{ padding: "6px 14px", fontSize: 12 }} onClick={() => {
