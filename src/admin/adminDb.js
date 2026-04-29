@@ -162,6 +162,21 @@ export const adminDb = {
     await supabase.from("events").delete().eq("cycle_id", cycleId);
     await supabase.from("cycles").update({ locked: false, digest_sent: false }).eq("id", cycleId);
   },
+  fetchFutureEvents: async (cycleId) => {
+    const today = new Date();
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,"0")}-${String(today.getDate()).padStart(2,"0")}`;
+    const { data } = await supabase.from("events").select("*").eq("cycle_id", cycleId).gte("date", todayStr);
+    return data || [];
+  },
+  carryForwardEvents: async (fromCycleId, toCycleId) => {
+    const today = new Date();
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,"0")}-${String(today.getDate()).padStart(2,"0")}`;
+    const { data: evs } = await supabase.from("events").select("*").eq("cycle_id", fromCycleId).gte("date", todayStr);
+    if (!evs?.length) return 0;
+    const rows = evs.map(({ id: _id, cycle_id: _cid, created_at: _ca, ...rest }) => ({ ...rest, cycle_id: toCycleId }));
+    await supabase.from("events").insert(rows);
+    return rows.length;
+  },
 
   // ── Audit Log ────────────────────────────────────────────────────────────────
   fetchAuditLog: async (orgId, limit = 50, offset = 0) => {

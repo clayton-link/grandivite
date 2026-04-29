@@ -38,9 +38,15 @@ export default function CycleManager({ orgId, actorEmail }) {
   async function createCycle() {
     const label = newLabel.trim();
     if (!label) return;
+    const prevCycleId = cycle?.id;
     const data = await adminDb.createCycle(orgId, label);
     writeAudit(orgId, actorEmail, "cycle.created", "cycle", data?.id, { month_label: label });
+    let carried = 0;
+    if (prevCycleId && data?.id) {
+      carried = await adminDb.carryForwardEvents(prevCycleId, data.id);
+    }
     setNewLabel(""); setShowCreate(false);
+    if (carried > 0) alert(`${carried} future event${carried !== 1 ? "s were" : " was"} automatically carried forward from ${cycle.month_label} into ${label}.`);
     load();
   }
 
@@ -53,7 +59,11 @@ export default function CycleManager({ orgId, actorEmail }) {
 
   async function resetCycle() {
     if (!cycle) return;
-    if (!window.confirm("This will permanently delete ALL events in the current cycle and reset it. This cannot be undone. Continue?")) return;
+    const futureEvs = await adminDb.fetchFutureEvents(cycle.id);
+    const futureNote = futureEvs.length > 0
+      ? `\n\n⚠️ ${futureEvs.length} event${futureEvs.length !== 1 ? "s are" : " is"} still in the future and will be permanently deleted. Use "+ New Cycle" instead to carry them forward automatically.`
+      : "";
+    if (!window.confirm(`This will permanently delete ALL events in ${cycle.month_label} and reset it. This cannot be undone.${futureNote}`)) return;
     await adminDb.resetCycle(cycle.id);
     writeAudit(orgId, actorEmail, "cycle.reset", "cycle", cycle.id, {});
     load();

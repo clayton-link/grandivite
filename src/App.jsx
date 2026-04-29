@@ -220,6 +220,12 @@ const db = {
     await supabase.from("events").delete().eq("cycle_id", cycleId);
     await supabase.from("cycles").update({ locked: false, digest_sent: false }).eq("id", cycleId);
   },
+  fetchFutureEvents: async (cycleId) => {
+    const today = new Date();
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,"0")}-${String(today.getDate()).padStart(2,"0")}`;
+    const { data } = await supabase.from("events").select("*").eq("cycle_id", cycleId).gte("date", todayStr);
+    return data || [];
+  },
   fetchSettings: async () => {
     const { data } = await supabase.from("settings").select("auto_nudge_enabled").eq("id", 1).single();
     return data;
@@ -1115,7 +1121,11 @@ export default function GrandiviteApp() {
     }
   };
   const handleReset  = async () => {
-    if (!window.confirm("Clear all events and reset for the new month?")) return;
+    const futureEvs = await db.fetchFutureEvents(cycle.id);
+    const futureNote = futureEvs.length > 0
+      ? `\n\n⚠️ ${futureEvs.length} event${futureEvs.length !== 1 ? "s are" : " is"} still in the future and will be permanently deleted. Create a new cycle instead to carry them forward.`
+      : "";
+    if (!window.confirm(`Clear all events and reset for the new month?${futureNote}`)) return;
     setEvents([]); setRsvpMap({}); setCycle(p => ({ ...p, locked: false, digest_sent: false }));
     setFormRows([BLANK_ROW()]); setFormSubmitted(false);
     await db.resetCycle(cycle.id);
