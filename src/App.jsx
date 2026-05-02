@@ -181,7 +181,7 @@ function norm(ev, familiesRef = []) {
 // ── SUPABASE DATA LAYER ───────────────────────────────────────────────────────
 const db = {
   fetchCycle: async (orgId) => {
-    const { data } = await supabase.from("cycles").select("*").eq("org_id", orgId).order("created_at", { ascending: false }).limit(1).single();
+    const { data } = await supabase.from("cycles").select("*").eq("org_id", orgId).is("closed_at", null).order("created_at", { ascending: false }).limit(1).single();
     return data;
   },
   fetchAllCycles: async (orgId) => {
@@ -454,12 +454,13 @@ function NotesField({ value, onChange, label, placeholder, childName, eventName,
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session?.access_token}` },
         body: JSON.stringify({ childName, eventName, importance: parseInt(importance), note: value }),
       });
-      if (!res.ok) throw new Error();
-      const { polished } = await res.json();
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error || `HTTP ${res.status}`);
       setOriginal(value);
-      onChange(polished);
-    } catch {
-      alert("Couldn't polish the note — try again.");
+      onChange(json.polished);
+    } catch (err) {
+      console.error("Polish error:", err);
+      alert(`Couldn't polish the note — ${err.message || "try again."}`);
     } finally {
       setLoading(false);
     }
@@ -685,7 +686,7 @@ function EventCard({ ev, canEdit, onEdit, onRemove, locked, isConflict = false }
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 3 }}>{e.childName} — {e.eventName}</div>
         <div style={{ fontSize: 12, color: C.muted, marginBottom: 2 }}>{formatDate(e.date)}{e.time ? ` · ${e.time}` : ""}</div>
-        {e.location && <div style={{ fontSize: 12, marginBottom: 4 }}><a href="#" onClick={e2 => { e2.preventDefault(); openMapsLink(e.lat && e.lng ? `https://maps.apple.com/?ll=${e.lat},${e.lng}&q=${encodeURIComponent(e.location)}` : `https://maps.apple.com/?q=${encodeURIComponent(e.location)}`); }} style={{ color: C.terra, textDecoration: "none", fontWeight: 600, cursor: "pointer" }}>📍 {e.location}</a></div>}
+        {e.location && <div style={{ fontSize: 12, marginBottom: 4 }}><a href="#" onClick={e2 => { e2.preventDefault(); openMapsLink(e.lat && e.lng ? `https://www.google.com/maps?q=${e.lat},${e.lng}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(e.location)}`); }} style={{ color: C.terra, textDecoration: "none", fontWeight: 600, cursor: "pointer" }}>📍 {e.location}</a></div>}
         {e.notes && <div style={{ fontSize: 13, color: C.text, fontStyle: "italic", lineHeight: 1.5 }}>"{e.notes}"</div>}
         {e.family && <div style={{ fontSize: 11, color: C.muted, marginTop: 4, fontWeight: 700, letterSpacing: "0.4px" }}>FROM {e.family.toUpperCase()}</div>}
         {isConflict && <div style={{ fontSize: 11, color: C.terra, fontWeight: 700, marginTop: 3 }}>⚠️ Another family has an event this day</div>}
@@ -859,7 +860,7 @@ function CalendarView({ events, rsvpMap = {}, families = [] }) {
                   <span style={{ fontWeight: 700, fontSize: 14 }}>{ev.childName} — {ev.eventName}</span>
                   <Badge level={ev.importance} size="sm" />
                 </div>
-                {ev.location && <div style={{ fontSize: 12 }}><a href="#" onClick={e2 => { e2.preventDefault(); openMapsLink(ev.lat && ev.lng ? `https://maps.apple.com/?ll=${ev.lat},${ev.lng}&q=${encodeURIComponent(ev.location)}` : `https://maps.apple.com/?q=${encodeURIComponent(ev.location)}`); }} style={{ color: C.terra, textDecoration: "none", cursor: "pointer" }}>📍 {ev.location}</a></div>}
+                {ev.location && <div style={{ fontSize: 12 }}><a href="#" onClick={e2 => { e2.preventDefault(); openMapsLink(ev.lat && ev.lng ? `https://www.google.com/maps?q=${ev.lat},${ev.lng}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(ev.location)}`); }} style={{ color: C.terra, textDecoration: "none", cursor: "pointer" }}>📍 {ev.location}</a></div>}
                 {rsvpMap[ev.id] === "yes"   && <div style={{ fontSize: 11, color: C.green, fontWeight: 700, marginTop: 3 }}>✓ Nana & Papa coming</div>}
                 {rsvpMap[ev.id] === "maybe" && <div style={{ fontSize: 11, color: C.terra, fontWeight: 700, marginTop: 3 }}>◎ Nana & Papa maybe</div>}
               </div>
@@ -1125,13 +1126,14 @@ export default function GrandiviteApp() {
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session?.access_token}` },
         body: JSON.stringify({ pendingFamilies: pending, max30Label: win.max30Label }),
       });
-      if (!res.ok) throw new Error();
-      const { drafts } = await res.json();
-      setNudgeDrafts(drafts);
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error || `HTTP ${res.status}`);
+      setNudgeDrafts(json.drafts);
       setNudgePending(pending);
       setShowNudgeModal(true);
-    } catch {
-      alert("Couldn't generate nudge drafts — try again.");
+    } catch (err) {
+      console.error("Nudge draft error:", err);
+      alert(`Couldn't generate nudge drafts — ${err.message || "try again."}`);
     } finally {
       setNudgeDraftLoading(false);
     }
@@ -1660,7 +1662,7 @@ export default function GrandiviteApp() {
             <h3 style={{ ...serif, fontSize: 21, margin: "0 0 8px", color: C.text }}>{ev.childName}'s {ev.eventName}</h3>
             <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: ev.notes ? 12 : 14 }}>
               {ev.time     && <div style={{ fontSize: 13, color: C.muted }}>🕐 {ev.time}</div>}
-              {ev.location && <div style={{ fontSize: 13 }}><a href="#" onClick={e2 => { e2.preventDefault(); openMapsLink(ev.lat && ev.lng ? `https://maps.apple.com/?ll=${ev.lat},${ev.lng}&q=${encodeURIComponent(ev.location)}` : `https://maps.apple.com/?q=${encodeURIComponent(ev.location)}`); }} style={{ color: C.terra, textDecoration: "none", fontWeight: 700, cursor: "pointer" }}>📍 {ev.location} →</a></div>}
+              {ev.location && <div style={{ fontSize: 13 }}><a href="#" onClick={e2 => { e2.preventDefault(); openMapsLink(ev.lat && ev.lng ? `https://www.google.com/maps?q=${ev.lat},${ev.lng}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(ev.location)}`); }} style={{ color: C.terra, textDecoration: "none", fontWeight: 700, cursor: "pointer" }}>📍 {ev.location} →</a></div>}
             </div>
             {ev.notes && <div style={{ padding: "12px 16px", backgroundColor: C.cream, borderRadius: 10, fontSize: 14, color: C.text, lineHeight: 1.7, fontStyle: "italic", marginBottom: 14 }}>"{ev.notes}"</div>}
             <div style={{ padding: "10px 16px", backgroundColor: info.bg, borderRadius: 10, fontSize: 13, color: info.color, fontWeight: 700, borderLeft: `3px solid ${info.color}`, marginBottom: 12 }}>💚 {info.msg}</div>

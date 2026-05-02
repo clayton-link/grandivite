@@ -27,11 +27,17 @@ Original note: ${note}
 Write only the improved note, nothing else.`;
 
   const client = new Anthropic();
-  const message = await client.messages.create({
-    model: "claude-haiku-4-5-20251001",
-    max_tokens: 200,
-    messages: [{ role: "user", content: prompt }],
-  });
+  let message;
+  try {
+    message = await client.messages.create({
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 200,
+      messages: [{ role: "user", content: prompt }],
+    });
+  } catch (err) {
+    console.error("Anthropic error:", err);
+    return res.status(500).json({ error: err.message || "AI request failed" });
+  }
 
   return res.status(200).json({ polished: message.content[0].text.trim() });
 }

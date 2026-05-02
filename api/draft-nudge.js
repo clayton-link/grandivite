@@ -42,11 +42,17 @@ Instructions for each nudge:
 Return a valid JSON object where each key is the full family name exactly as given above and the value is the nudge message string. Return ONLY the JSON object, no other text.`;
 
   const client = new Anthropic();
-  const message = await client.messages.create({
-    model: "claude-haiku-4-5-20251001",
-    max_tokens: 1200,
-    messages: [{ role: "user", content: prompt }],
-  });
+  let message;
+  try {
+    message = await client.messages.create({
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 1200,
+      messages: [{ role: "user", content: prompt }],
+    });
+  } catch (err) {
+    console.error("Anthropic error:", err);
+    return res.status(500).json({ error: err.message || "AI request failed" });
+  }
 
   let drafts;
   try {
