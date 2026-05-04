@@ -22,10 +22,12 @@ const C = {
   brown: "#8B6F47", brownLight: "#F5EDE3", brownBorder: "#C4A882",
   greenBorder: "#A8C9C6", white: "#FFFFFF", text: "#1A2A28",
   muted: "#6B7B79", border: "#E2DAD4", red: "#C0392B", redLight: "#FDECEA",
+  family: "#6B5B8A", familyLight: "#F0EDF8", familyBorder: "#C4B8E0",
 };
 
 // No hardcoded families or coordinator emails — all loaded from DB at runtime
-const BLANK_ROW = () => ({ childName: "", eventName: "", date: "", time: "", location: "", lat: null, lng: null, importance: "", notes: "" });
+const BLANK_ROW        = () => ({ childName: "", eventName: "", date: "", time: "", location: "", lat: null, lng: null, importance: "", notes: "", isFamilyEvent: false });
+const BLANK_FAMILY_ROW = () => ({ childName: "", eventName: "", date: "", time: "", location: "", lat: null, lng: null, importance: 1,  notes: "", isFamilyEvent: true  });
 
 // Resolve a signed-in Google email to a role + family using DB-loaded data
 function resolveAuth(email, fams = [], coordEmails = []) {
@@ -42,6 +44,9 @@ function impInfo(level) {
   if (level === 3) return { label: "Milestone",   stars: "⭐⭐⭐", color: C.green, bg: C.greenLight, border: C.greenBorder, msg: "This is a once-in-a-lifetime moment — we'd love you there." };
   if (level === 2) return { label: "1:1 Time",    stars: "⭐⭐",   color: C.terra, bg: C.terraLight, border: C.terraBorder, msg: "This is a chance for just you two — it would mean everything to them." };
   return              { label: "Group Event", stars: "⭐",     color: C.brown, bg: C.brownLight, border: C.brownBorder, msg: "Come cheer with the whole family!" };
+}
+function familyInfo() {
+  return { label: "Family Event", stars: "🎉", color: C.family, bg: C.familyLight, border: C.familyBorder, msg: "You're invited — we'd love for you to join us!" };
 }
 
 const formatDate  = d => d ? new Date(d + "T12:00:00").toLocaleDateString("en-US", { weekday: "long",  month: "long",  day: "numeric" }) : "";
@@ -94,7 +99,7 @@ function addToCalendar(ev) {
     "BEGIN:VEVENT",
     `UID:${e.id}@grandivite.com`,
     dtProp,
-    `SUMMARY:${e.childName}'s ${e.eventName}`,
+    `SUMMARY:${e.isFamilyEvent ? e.eventName : `${e.childName}'s ${e.eventName}`}`,
     location,
     description,
     "END:VEVENT",
@@ -132,7 +137,7 @@ function addToGoogleCalendar(ev) {
   }
   const params = new URLSearchParams({
     action:   "TEMPLATE",
-    text:     `${e.childName}'s ${e.eventName}`,
+    text:     e.isFamilyEvent ? e.eventName : `${e.childName}'s ${e.eventName}`,
     dates,
     details:  e.notes || `From ${e.family || "the family"} — grandivite.com`,
     location: e.location || "",
@@ -167,9 +172,10 @@ const lbl   = { display: "block", fontSize: 11, fontWeight: 700, letterSpacing: 
 function norm(ev, familiesRef = []) {
   return {
     ...ev,
-    childName: ev.child_name  || ev.childName  || "",
-    eventName: ev.event_name  || ev.eventName  || "",
-    familyId:  ev.family_id   || ev.familyId,
+    childName:     ev.child_name      || ev.childName      || "",
+    eventName:     ev.event_name      || ev.eventName      || "",
+    familyId:      ev.family_id       || ev.familyId,
+    isFamilyEvent: ev.is_family_event || ev.isFamilyEvent  || false,
     family:    (() => {
       const fid = ev.family_id || ev.familyId;
       const f = familiesRef.find(f => f.id === fid);
@@ -199,19 +205,21 @@ const db = {
   insertEvent: async (cycleId, familyId, familyName, row) => {
     const { data } = await supabase.from("events").insert({
       cycle_id: cycleId, family_id: familyId, family_name: familyName,
-      child_name: row.childName, event_name: row.eventName, date: row.date,
+      child_name: row.childName || null, event_name: row.eventName, date: row.date,
       time: row.time || null, location: row.location || null,
       lat: row.lat || null, lng: row.lng || null,
-      importance: parseInt(row.importance), notes: row.notes || null,
+      importance: parseInt(row.importance) || 1, notes: row.notes || null,
+      is_family_event: row.isFamilyEvent || false,
     }).select().single();
     return data;
   },
   updateEvent: async (id, fields) => {
     await supabase.from("events").update({
-      child_name: fields.childName, event_name: fields.eventName, date: fields.date,
+      child_name: fields.childName || null, event_name: fields.eventName, date: fields.date,
       time: fields.time || null, location: fields.location || null,
       lat: fields.lat || null,   lng: fields.lng || null,
-      importance: parseInt(fields.importance), notes: fields.notes || null,
+      importance: parseInt(fields.importance) || 1, notes: fields.notes || null,
+      is_family_event: fields.isFamilyEvent || false,
     }).eq("id", id);
   },
   deleteEvent: async (id) => { await supabase.from("events").delete().eq("id", id); },
@@ -264,8 +272,8 @@ function Btn({ children, variant = "primary", onClick, disabled, full, style = {
   return <button onClick={onClick} disabled={disabled} style={{ ...base, ...vs[variant], ...style }}>{children}</button>;
 }
 
-function Badge({ level, size = "md" }) {
-  const i = impInfo(level);
+function Badge({ level, isFamilyEvent, size = "md" }) {
+  const i = isFamilyEvent ? familyInfo() : impInfo(level);
   return <span style={{ backgroundColor: i.bg, color: i.color, border: `1px solid ${i.border}`, borderRadius: 20, padding: size === "sm" ? "3px 10px" : "5px 14px", fontSize: size === "sm" ? 11 : 12, fontWeight: 700, whiteSpace: "nowrap", display: "inline-block" }}>{i.stars} {i.label}</span>;
 }
 
@@ -282,19 +290,20 @@ function EditModal({ event, onSave, onClose, familyChildren, noteLabel = "A Note
   const isMobile = useIsMobile();
   const e = norm(event);
   const [draft, setDraft] = useState({
-    childName: e.childName,
-    eventName: e.eventName,
-    date: e.date,
-    time: e.time || "",
-    location: e.location || "",
-    lat: e.lat ?? null,
-    lng: e.lng ?? null,
-    importance: e.importance || "",
-    notes: e.notes || "",
+    childName:     e.childName,
+    eventName:     e.eventName,
+    date:          e.date,
+    time:          e.time || "",
+    location:      e.location || "",
+    lat:           e.lat ?? null,
+    lng:           e.lng ?? null,
+    importance:    e.importance || "",
+    notes:         e.notes || "",
+    isFamilyEvent: e.isFamilyEvent || false,
   });
 
   const set = (k, v) => setDraft(d => ({ ...d, [k]: v }));
-  const valid = draft.childName && draft.eventName && draft.date && draft.importance;
+  const valid = draft.isFamilyEvent ? (draft.eventName && draft.date) : (draft.childName && draft.eventName && draft.date && draft.importance);
 
   return (
     <div style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.45)", zIndex: 500, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
@@ -304,21 +313,25 @@ function EditModal({ event, onSave, onClose, familyChildren, noteLabel = "A Note
           <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: C.muted }}>✕</button>
         </div>
 
-        <div style={{ marginBottom: 16 }}>
-          <span style={lbl}>Child's Name</span>
-          {familyChildren?.length > 0 ? (
-            <select style={inp} value={draft.childName} onChange={e => set("childName", e.target.value)}>
-              <option value="">Select child...</option>
-              {familyChildren.map(c => <option key={c} value={c}>{c}</option>)}
-              <option value="All kids">All kids</option>
-            </select>
-          ) : (
-            <input style={inp} value={draft.childName} onChange={e => set("childName", e.target.value)} />
-          )}
-        </div>
+        {draft.isFamilyEvent ? (
+          <div style={{ marginBottom: 16, padding: "10px 14px", backgroundColor: C.familyLight, borderRadius: 8, fontSize: 13, color: C.family, fontWeight: 600 }}>🎉 Family / Holiday Event</div>
+        ) : (
+          <div style={{ marginBottom: 16 }}>
+            <span style={lbl}>Child's Name</span>
+            {familyChildren?.length > 0 ? (
+              <select style={inp} value={draft.childName} onChange={e => set("childName", e.target.value)}>
+                <option value="">Select child...</option>
+                {familyChildren.map(c => <option key={c} value={c}>{c}</option>)}
+                <option value="All kids">All kids</option>
+              </select>
+            ) : (
+              <input style={inp} value={draft.childName} onChange={e => set("childName", e.target.value)} />
+            )}
+          </div>
+        )}
 
         <div style={{ marginBottom: 16 }}>
-          <span style={lbl}>Event / Activity</span>
+          <span style={lbl}>{draft.isFamilyEvent ? "Event / Occasion" : "Event / Activity"}</span>
           <input style={inp} value={draft.eventName} onChange={e => set("eventName", e.target.value)} />
         </div>
 
@@ -346,19 +359,21 @@ function EditModal({ event, onSave, onClose, familyChildren, noteLabel = "A Note
           />
         </div>
 
-        <div style={{ marginBottom: 16 }}>
-          <span style={lbl}>Priority</span>
-          <select style={inp} value={draft.importance} onChange={e => set("importance", e.target.value)}>
-            <option value="">Select priority...</option>
-            <option value="3">⭐⭐⭐ Milestone</option>
-            <option value="2">⭐⭐ Intentional 1:1 Time</option>
-            <option value="1">⭐ Group Event</option>
-          </select>
-        </div>
+        {!draft.isFamilyEvent && (
+          <div style={{ marginBottom: 16 }}>
+            <span style={lbl}>Priority</span>
+            <select style={inp} value={draft.importance} onChange={e => set("importance", e.target.value)}>
+              <option value="">Select priority...</option>
+              <option value="3">⭐⭐⭐ Milestone</option>
+              <option value="2">⭐⭐ Intentional 1:1 Time</option>
+              <option value="1">⭐ Group Event</option>
+            </select>
+          </div>
+        )}
 
         <div style={{ marginBottom: 24 }}>
           <NotesField
-            label={noteLabel}
+            label={draft.isFamilyEvent ? "Details for grandparents (Optional)" : noteLabel}
             value={draft.notes}
             onChange={v => set("notes", v)}
             childName={draft.childName}
@@ -679,12 +694,12 @@ function AuthScreen() {
 
 function EventCard({ ev, canEdit, onEdit, onRemove, locked, isConflict = false }) {
   const e = norm(ev);
-  const info = impInfo(e.importance);
+  const info = e.isFamilyEvent ? familyInfo() : impInfo(e.importance);
   return (
     <div style={{ display: "flex", gap: 14, padding: "16px 12px", borderBottom: `1px solid ${C.border}`, alignItems: "flex-start", backgroundColor: isConflict ? "#FFFAF4" : "transparent", borderLeft: isConflict ? `4px solid ${C.terra}` : "4px solid transparent", margin: "0 -12px" }}>
       <div style={{ minWidth: 76, flexShrink: 0, backgroundColor: info.bg, color: info.color, borderRadius: 8, padding: "6px 8px", fontSize: 9, fontWeight: 700, textAlign: "center", lineHeight: 1.6 }}>{info.stars}<br />{info.label}</div>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 3 }}>{e.childName} — {e.eventName}</div>
+        <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 3 }}>{e.isFamilyEvent ? e.eventName : `${e.childName} — ${e.eventName}`}</div>
         <div style={{ fontSize: 12, color: C.muted, marginBottom: 2 }}>{formatDate(e.date)}{e.time ? ` · ${e.time}` : ""}</div>
         {e.location && <div style={{ fontSize: 12, marginBottom: 4 }}><a href="#" onClick={e2 => { e2.preventDefault(); openMapsLink(e.lat && e.lng ? `https://www.google.com/maps?q=${e.lat},${e.lng}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(e.location)}`); }} style={{ color: C.terra, textDecoration: "none", fontWeight: 600, cursor: "pointer" }}>📍 {e.location}</a></div>}
         {e.notes && <div style={{ fontSize: 13, color: C.text, fontStyle: "italic", lineHeight: 1.5 }}>"{e.notes}"</div>}
@@ -857,8 +872,8 @@ function CalendarView({ events, rsvpMap = {}, families = [] }) {
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 4 }}>
-                  <span style={{ fontWeight: 700, fontSize: 14 }}>{ev.childName} — {ev.eventName}</span>
-                  <Badge level={ev.importance} size="sm" />
+                  <span style={{ fontWeight: 700, fontSize: 14 }}>{ev.isFamilyEvent ? `🎉 ${ev.eventName}` : `${ev.childName} — ${ev.eventName}`}</span>
+                  <Badge level={ev.importance} isFamilyEvent={ev.isFamilyEvent} size="sm" />
                 </div>
                 {ev.location && <div style={{ fontSize: 12 }}><a href="#" onClick={e2 => { e2.preventDefault(); openMapsLink(ev.lat && ev.lng ? `https://www.google.com/maps?q=${ev.lat},${ev.lng}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(ev.location)}`); }} style={{ color: C.terra, textDecoration: "none", cursor: "pointer" }}>📍 {ev.location}</a></div>}
                 {rsvpMap[ev.id] === "yes"   && <div style={{ fontSize: 11, color: C.green, fontWeight: 700, marginTop: 3 }}>✓ Nana & Papa coming</div>}
@@ -1168,7 +1183,7 @@ export default function GrandiviteApp() {
     await db.resetCycle(cycle.id);
   };
   const handleSubmit = async () => {
-    const valid = formRows.filter(r => r.childName && r.eventName && r.date && r.importance);
+    const valid = formRows.filter(r => r.isFamilyEvent ? (r.eventName && r.date) : (r.childName && r.eventName && r.date && r.importance));
     if (!valid.length) return;
     if (!cycle?.id) {
       alert("No active cycle found. Please ask the coordinator to set up the current cycle in Supabase.");
@@ -1191,6 +1206,10 @@ export default function GrandiviteApp() {
       const newPerChild = { ...existingPerChild };
       const skipped = [];
       for (const row of valid) {
+        if (row.isFamilyEvent) {
+          toSubmit.push({ ...row, childName: familyName });
+          continue;
+        }
         const key = row.childName.trim().toLowerCase();
         if ((newPerChild[key] || 0) >= MAX) {
           skipped.push(row.childName);
@@ -1360,37 +1379,51 @@ export default function GrandiviteApp() {
           <>
             <div style={{ ...card, padding: 16 }}>
               <div style={lbl}>Priority Guide — Max 2 Events Per Child</div>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>{[3,2,1].map(l => <Badge key={l} level={l} />)}</div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>{[3,2,1].map(l => <Badge key={l} level={l} />)}<Badge isFamilyEvent /></div>
             </div>
             {formRows.map((row, i) => (
-              <div key={i} style={card}>
-                <h3 style={{ ...serif, fontSize: 18, margin: "0 0 20px" }}>New Event {formRows.length > 1 ? i + 1 : ""}</h3>
-                <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 16, marginBottom: 16 }}>
-                  <div>
-                    <span style={lbl}>Child's Name</span>
-                    {fam && fam.children?.length > 0 ? (
-                      <select style={inp} value={row.childName} onChange={e => updateRow(i, "childName", e.target.value)}>
-                        <option value="">Select child...</option>
-                        {fam.children.map(c => <option key={c} value={c}>{c}</option>)}
-                        <option value="All kids">All kids</option>
-                      </select>
-                    ) : (
-                      <input style={inp} placeholder="e.g. Name" value={row.childName} onChange={e => updateRow(i, "childName", e.target.value)} />
-                    )}
-                    {(() => {
-                      if (!row.childName) return null;
-                      const baseMax = orgSettings?.max_events_per_child ?? 2;
-                      const MAX     = baseMax * cadenceMultiplier(auth.family?.submission_cadence || "monthly");
-                      const already = myEvents.filter(e => e.childName === row.childName).length;
-                      const inForm  = formRows.filter((r, idx) => idx !== i && r.childName === row.childName).length;
-                      const total   = already + inForm;
-                      if (total >= MAX) return <div style={{ fontSize: 11, color: C.red,   marginTop: 5, fontWeight: 700 }}>⚠️ Max {MAX} event{MAX !== 1 ? "s" : ""} reached for {row.childName}</div>;
-                      if (total === MAX - 1) return <div style={{ fontSize: 11, color: C.terra, marginTop: 5, fontWeight: 700 }}>This is event {MAX} of {MAX} for {row.childName}</div>;
-                      return null;
-                    })()}
-                  </div>
-                  <div><span style={lbl}>Event / Activity</span><input style={inp} placeholder="e.g. Spring Play" value={row.eventName} onChange={e => updateRow(i, "eventName", e.target.value)} /></div>
+              <div key={i} style={{ ...card, borderLeft: row.isFamilyEvent ? `4px solid ${C.family}` : "none" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+                  <h3 style={{ ...serif, fontSize: 18, margin: 0, color: row.isFamilyEvent ? C.family : C.text }}>
+                    {row.isFamilyEvent ? "🎉 Family / Holiday Event" : `New Event ${formRows.length > 1 ? i + 1 : ""}`}
+                  </h3>
+                  {formRows.length > 1 && <button onClick={() => setFormRows(r => r.filter((_, idx) => idx !== i))} style={{ background: "none", border: "none", fontSize: 16, color: C.muted, cursor: "pointer" }}>✕</button>}
                 </div>
+                {row.isFamilyEvent ? (
+                  <>
+                    <div style={{ marginBottom: 16, padding: "10px 14px", backgroundColor: C.familyLight, borderRadius: 8, fontSize: 13, color: C.family, fontWeight: 600 }}>
+                      Hosted by {fam?.name || "your family"} — this will appear as an invitation for grandparents.
+                    </div>
+                    <div style={{ marginBottom: 16 }}><span style={lbl}>Event / Occasion</span><input style={inp} placeholder="e.g. Mother's Day Brunch, Christmas Dinner" value={row.eventName} onChange={e => updateRow(i, "eventName", e.target.value)} /></div>
+                  </>
+                ) : (
+                  <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 16, marginBottom: 16 }}>
+                    <div>
+                      <span style={lbl}>Child's Name</span>
+                      {fam && fam.children?.length > 0 ? (
+                        <select style={inp} value={row.childName} onChange={e => updateRow(i, "childName", e.target.value)}>
+                          <option value="">Select child...</option>
+                          {fam.children.map(c => <option key={c} value={c}>{c}</option>)}
+                          <option value="All kids">All kids</option>
+                        </select>
+                      ) : (
+                        <input style={inp} placeholder="e.g. Name" value={row.childName} onChange={e => updateRow(i, "childName", e.target.value)} />
+                      )}
+                      {(() => {
+                        if (!row.childName) return null;
+                        const baseMax = orgSettings?.max_events_per_child ?? 2;
+                        const MAX     = baseMax * cadenceMultiplier(auth.family?.submission_cadence || "monthly");
+                        const already = myEvents.filter(e => e.childName === row.childName).length;
+                        const inForm  = formRows.filter((r, idx) => idx !== i && r.childName === row.childName).length;
+                        const total   = already + inForm;
+                        if (total >= MAX) return <div style={{ fontSize: 11, color: C.red,   marginTop: 5, fontWeight: 700 }}>⚠️ Max {MAX} event{MAX !== 1 ? "s" : ""} reached for {row.childName}</div>;
+                        if (total === MAX - 1) return <div style={{ fontSize: 11, color: C.terra, marginTop: 5, fontWeight: 700 }}>This is event {MAX} of {MAX} for {row.childName}</div>;
+                        return null;
+                      })()}
+                    </div>
+                    <div><span style={lbl}>Event / Activity</span><input style={inp} placeholder="e.g. Spring Play" value={row.eventName} onChange={e => updateRow(i, "eventName", e.target.value)} /></div>
+                  </div>
+                )}
                 <div style={{ marginBottom: 16 }}><span style={lbl}>Date</span><input style={{ ...inp, display: "block", width: "100%" }} type="date" min={todayISO} value={row.date} onChange={e => updateRow(i, "date", e.target.value)} /></div>
                 <div style={{ marginBottom: 16 }}><span style={lbl}>Time (Optional)</span><input style={{ ...inp, display: "block", width: "100%" }} type="text" placeholder="e.g. 6:30 PM" value={row.time} onChange={e => updateRow(i, "time", e.target.value)} /></div>
                 <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 16, marginBottom: 16 }}>
@@ -1405,20 +1438,22 @@ export default function GrandiviteApp() {
                       }}
                     />
                   </div>
-                  <div>
-                    <span style={lbl}>Priority</span>
-                    <select style={inp} value={row.importance} onChange={e => updateRow(i, "importance", e.target.value)}>
-                      <option value="">Select priority...</option>
-                      <option value="3">⭐⭐⭐ Milestone</option>
-                      <option value="2">⭐⭐ Intentional 1:1 Time</option>
-                      <option value="1">⭐ Group Event</option>
-                    </select>
-                  </div>
+                  {!row.isFamilyEvent && (
+                    <div>
+                      <span style={lbl}>Priority</span>
+                      <select style={inp} value={row.importance} onChange={e => updateRow(i, "importance", e.target.value)}>
+                        <option value="">Select priority...</option>
+                        <option value="3">⭐⭐⭐ Milestone</option>
+                        <option value="2">⭐⭐ Intentional 1:1 Time</option>
+                        <option value="1">⭐ Group Event</option>
+                      </select>
+                    </div>
+                  )}
                 </div>
                 <div>
                   <NotesField
-                    label={noteLabel}
-                    placeholder="Share what makes this moment special..."
+                    label={row.isFamilyEvent ? "Details for grandparents (Optional)" : noteLabel}
+                    placeholder={row.isFamilyEvent ? "What should they know? Dress code, what to bring, etc." : "Share what makes this moment special..."}
                     value={row.notes}
                     onChange={v => updateRow(i, "notes", v)}
                     childName={row.childName}
@@ -1429,13 +1464,14 @@ export default function GrandiviteApp() {
               </div>
             ))}
             {(() => {
-              const hasValid = formRows.some(r => r.childName && r.eventName && r.date && r.importance);
-              const missingPriority = formRows.some(r => r.childName && r.eventName && r.date && !r.importance);
+              const hasValid = formRows.some(r => r.isFamilyEvent ? (r.eventName && r.date) : (r.childName && r.eventName && r.date && r.importance));
+              const missingPriority = formRows.some(r => !r.isFamilyEvent && r.childName && r.eventName && r.date && !r.importance);
               return (
                 <>
                   {missingPriority && <p style={{ fontSize: 12, color: C.terra, margin: "0 0 8px", fontWeight: 700 }}>⚠️ Select a Priority for each event before submitting.</p>}
                   <div style={{ display: "flex", gap: 12, flexWrap: "wrap", flexDirection: isMobile ? "column" : "row" }}>
-                    <Btn variant="outline" onClick={() => setFormRows(r => [...r, BLANK_ROW()])}>+ Add Another Event</Btn>
+                    <Btn variant="outline" onClick={() => setFormRows(r => [...r, BLANK_ROW()])}>+ Add Child's Event</Btn>
+                    <Btn variant="outline" onClick={() => setFormRows(r => [...r, BLANK_FAMILY_ROW()])} style={{ borderColor: C.family, color: C.family }}>🎉 Add Family Event</Btn>
                     <Btn variant="accent" disabled={!hasValid} onClick={handleSubmit}>Submit Our Events →</Btn>
                   </div>
                 </>
@@ -1629,7 +1665,7 @@ export default function GrandiviteApp() {
           {confirmedEvents.map(ev => (
             <div key={ev.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${C.greenBorder}`, flexWrap: "wrap", gap: 8 }}>
               <div>
-                <div style={{ fontWeight: 700, fontSize: 14, color: C.text }}>{ev.childName}'s {ev.eventName}</div>
+                <div style={{ fontWeight: 700, fontSize: 14, color: C.text }}>{ev.isFamilyEvent ? ev.eventName : `${ev.childName}'s ${ev.eventName}`}</div>
                 <div style={{ fontSize: 12, color: C.muted }}>{formatDate(ev.date)}{ev.time ? ` · ${ev.time}` : ""}</div>
               </div>
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -1652,14 +1688,15 @@ export default function GrandiviteApp() {
       </div>
 
       {chronoEvents.map(ev => {
-        const info = impInfo(ev.importance);
+        const info = ev.isFamilyEvent ? familyInfo() : impInfo(ev.importance);
         return (
           <div key={ev.id} style={{ ...card, borderLeft: `5px solid ${info.color}`, padding: isMobile ? "16px 14px" : "22px 24px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
               <Badge level={ev.importance} size="sm" />
               <span style={{ fontSize: 13, color: C.muted }}>{formatDate(ev.date)}</span>
             </div>
-            <h3 style={{ ...serif, fontSize: 21, margin: "0 0 8px", color: C.text }}>{ev.childName}'s {ev.eventName}</h3>
+            <h3 style={{ ...serif, fontSize: 21, margin: "0 0 8px", color: C.text }}>{ev.isFamilyEvent ? ev.eventName : `${ev.childName}'s ${ev.eventName}`}</h3>
+            {ev.isFamilyEvent && ev.family && <div style={{ fontSize: 13, color: C.family, fontWeight: 700, marginBottom: 8 }}>Hosted by {ev.family}</div>}
             <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: ev.notes ? 12 : 14 }}>
               {ev.time     && <div style={{ fontSize: 13, color: C.muted }}>🕐 {ev.time}</div>}
               {ev.location && <div style={{ fontSize: 13 }}><a href="#" onClick={e2 => { e2.preventDefault(); openMapsLink(ev.lat && ev.lng ? `https://www.google.com/maps?q=${ev.lat},${ev.lng}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(ev.location)}`); }} style={{ color: C.terra, textDecoration: "none", fontWeight: 700, cursor: "pointer" }}>📍 {ev.location} →</a></div>}

@@ -60,11 +60,10 @@ export default function CycleManager({ orgId, actorEmail }) {
     setCycle(c => ({ ...c, ...fields }));
   }
 
-  async function closeCycle() {
-    if (!cycle) return;
-    if (!window.confirm(`Close ${cycle.month_label}? It will move to Past Cycles. The next open cycle will become current.`)) return;
-    await adminDb.supabase.from("cycles").update({ closed_at: new Date().toISOString() }).eq("id", cycle.id);
-    writeAudit(orgId, actorEmail, "cycle.closed", "cycle", cycle.id, {});
+  async function closeCycle(id, label) {
+    if (!window.confirm(`Close ${label}? It will be archived in Past Cycles.`)) return;
+    await adminDb.supabase.from("cycles").update({ closed_at: new Date().toISOString() }).eq("id", id);
+    writeAudit(orgId, actorEmail, "cycle.closed", "cycle", id, {});
     load();
   }
 
@@ -134,7 +133,7 @@ export default function CycleManager({ orgId, actorEmail }) {
             {!cycle.digest_sent && (
               <button onClick={() => updateCycle({ digest_sent: true })} style={{ padding: "10px 20px", borderRadius: 10, border: `2px solid ${C.terra}`, backgroundColor: "transparent", color: C.terra, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'Lato', sans-serif" }}>📧 Mark Digest Sent</button>
             )}
-            <button onClick={closeCycle} style={{ padding: "10px 20px", borderRadius: 10, border: `2px solid ${C.muted}`, backgroundColor: "transparent", color: C.muted, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'Lato', sans-serif" }}>📦 Close Cycle</button>
+            <button onClick={() => closeCycle(cycle.id, cycle.month_label)} style={{ padding: "10px 20px", borderRadius: 10, border: `2px solid ${C.muted}`, backgroundColor: "transparent", color: C.muted, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'Lato', sans-serif" }}>📦 Close Cycle</button>
           </div>
         </div>
       ) : (
@@ -157,18 +156,19 @@ export default function CycleManager({ orgId, actorEmail }) {
         <div>
           <h3 style={{ ...serif, fontSize: 18, color: C.text, margin: "24px 0 14px" }}>Past Cycles</h3>
           <div style={{ backgroundColor: C.white, borderRadius: 16, border: `1px solid ${C.border}`, overflow: "hidden" }}>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 80px 100px 100px 120px", padding: "10px 16px", backgroundColor: C.cream, borderBottom: `2px solid ${C.border}`, gap: 12 }}>
-              {["Cycle", "Events", "Status", "Digest", "Created"].map((h, i) => (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 60px 90px 90px 90px auto", padding: "10px 16px", backgroundColor: C.cream, borderBottom: `2px solid ${C.border}`, gap: 12 }}>
+              {["Cycle", "Events", "Status", "Digest", "Created", ""].map((h, i) => (
                 <span key={i} style={{ fontSize: 10, fontWeight: 700, color: C.muted, letterSpacing: "0.6px", textTransform: "uppercase" }}>{h}</span>
               ))}
             </div>
             {history.map(c => (
-              <div key={c.id} style={{ display: "grid", gridTemplateColumns: "1fr 80px 100px 100px 120px", padding: "12px 16px", borderBottom: `1px solid ${C.border}`, gap: 12, alignItems: "center" }}>
+              <div key={c.id} style={{ display: "grid", gridTemplateColumns: "1fr 60px 90px 90px 90px auto", padding: "12px 16px", borderBottom: `1px solid ${C.border}`, gap: 12, alignItems: "center" }}>
                 <span style={{ fontWeight: 700, fontSize: 14, color: C.text }}>{c.month_label}{c.closed_at && <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, color: C.muted, backgroundColor: C.cream, padding: "2px 7px", borderRadius: 10, border: `1px solid ${C.border}` }}>Closed</span>}</span>
                 <span style={{ fontSize: 13, color: C.muted }}>{eventCounts[c.id] || 0}</span>
                 <span style={{ fontSize: 11, fontWeight: 700, color: c.locked ? C.green : C.muted }}>{c.locked ? "🔒 Locked" : "Open"}</span>
                 <span style={{ fontSize: 11, color: c.digest_sent ? C.green : C.muted, fontWeight: 700 }}>{c.digest_sent ? "✓ Sent" : "—"}</span>
                 <span style={{ fontSize: 11, color: C.muted }}>{fmtTime(c.created_at)}</span>
+                <span>{!c.closed_at && <button onClick={() => closeCycle(c.id, c.month_label)} style={{ padding: "4px 10px", borderRadius: 6, border: `1px solid ${C.border}`, backgroundColor: "transparent", color: C.muted, fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "'Lato', sans-serif", whiteSpace: "nowrap" }}>📦 Close</button>}</span>
               </div>
             ))}
           </div>
