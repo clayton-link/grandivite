@@ -19,9 +19,11 @@ const GOOGLE_MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_KEY;
 const C = {
   cream: "#FDFCFA", green: "#2C5F5A", greenLight: "#E5F0EF",
   terra: "#E07A5F", terraLight: "#FDEEE9", terraBorder: "#F0B898",
+  terraText: "#C75A3F", // AA-compliant coral for text/button fills (was #E07A5F — ratio 2.95, fails)
   brown: "#8B6F47", brownLight: "#F5EDE3", brownBorder: "#C4A882",
   greenBorder: "#A8C9C6", white: "#FFFFFF", text: "#1A2A28",
-  muted: "#6B7B79", border: "#E2DAD4", red: "#C0392B", redLight: "#FDECEA",
+  muted: "#5C6B6A", // darkened from #6B7B79 for AA compliance at small sizes
+  border: "#E2DAD4", red: "#C0392B", redLight: "#FDECEA",
   family: "#6B5B8A", familyLight: "#F0EDF8", familyBorder: "#C4B8E0",
 };
 
@@ -264,7 +266,7 @@ function Btn({ children, variant = "primary", onClick, disabled, full, style = {
   const base = { padding: "11px 22px", borderRadius: 10, border: "none", cursor: disabled ? "not-allowed" : "pointer", fontFamily: "'Lato', sans-serif", fontWeight: 700, fontSize: 13, letterSpacing: "0.4px", transition: "opacity 0.2s", opacity: disabled ? 0.5 : 1, width: full ? "100%" : "auto" };
   const vs = {
     primary: { backgroundColor: C.green,  color: C.white },
-    accent:  { backgroundColor: C.terra,  color: C.white },
+    accent:  { backgroundColor: C.terraText, color: C.white },
     outline: { backgroundColor: "transparent", color: C.green, border: `2px solid ${C.green}` },
     ghost:   { backgroundColor: "transparent", color: C.muted, border: `1.5px solid ${C.border}` },
     danger:  { backgroundColor: "transparent", color: C.red,   border: `1.5px solid ${C.red}` },
@@ -274,7 +276,7 @@ function Btn({ children, variant = "primary", onClick, disabled, full, style = {
 
 function Badge({ level, isFamilyEvent, size = "md" }) {
   const i = isFamilyEvent ? familyInfo() : impInfo(level);
-  return <span style={{ backgroundColor: i.bg, color: i.color, border: `1px solid ${i.border}`, borderRadius: 20, padding: size === "sm" ? "3px 10px" : "5px 14px", fontSize: size === "sm" ? 11 : 12, fontWeight: 700, whiteSpace: "nowrap", display: "inline-block" }}>{i.stars} {i.label}</span>;
+  return <span style={{ backgroundColor: i.bg, color: C.text, border: `1px solid ${i.border}`, borderRadius: 20, padding: size === "sm" ? "3px 10px" : "5px 14px", fontSize: size === "sm" ? 11 : 12, fontWeight: 700, whiteSpace: "nowrap", display: "inline-block" }}>{i.stars} {i.label}</span>;
 }
 
 function Spinner() {
@@ -697,14 +699,14 @@ function EventCard({ ev, canEdit, onEdit, onRemove, locked, isConflict = false }
   const info = e.isFamilyEvent ? familyInfo() : impInfo(e.importance);
   return (
     <div style={{ display: "flex", gap: 14, padding: "16px 12px", borderBottom: `1px solid ${C.border}`, alignItems: "flex-start", backgroundColor: isConflict ? "#FFFAF4" : "transparent", borderLeft: isConflict ? `4px solid ${C.terra}` : "4px solid transparent", margin: "0 -12px" }}>
-      <div style={{ minWidth: 76, flexShrink: 0, backgroundColor: info.bg, color: info.color, borderRadius: 8, padding: "6px 8px", fontSize: 9, fontWeight: 700, textAlign: "center", lineHeight: 1.6 }}>{info.stars}<br />{info.label}</div>
+      <div style={{ minWidth: 76, flexShrink: 0, backgroundColor: info.bg, color: C.text, borderRadius: 8, padding: "6px 8px", fontSize: 9, fontWeight: 700, textAlign: "center", lineHeight: 1.6 }}>{info.stars}<br />{info.label}</div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 3 }}>{e.isFamilyEvent ? e.eventName : `${e.childName} — ${e.eventName}`}</div>
         <div style={{ fontSize: 12, color: C.muted, marginBottom: 2 }}>{formatDate(e.date)}{e.time ? ` · ${e.time}` : ""}</div>
-        {e.location && <div style={{ fontSize: 12, marginBottom: 4 }}><a href="#" onClick={e2 => { e2.preventDefault(); openMapsLink(e.lat && e.lng ? `https://www.google.com/maps?q=${e.lat},${e.lng}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(e.location)}`); }} style={{ color: C.terra, textDecoration: "none", fontWeight: 600, cursor: "pointer" }}>📍 {e.location}</a></div>}
+        {e.location && <div style={{ fontSize: 12, marginBottom: 4 }}><a href="#" onClick={e2 => { e2.preventDefault(); openMapsLink(e.lat && e.lng ? `https://www.google.com/maps?q=${e.lat},${e.lng}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(e.location)}`); }} style={{ color: C.terraText, textDecoration: "underline", textUnderlineOffset: "2px", fontWeight: 600, cursor: "pointer" }}>📍 {e.location}</a></div>}
         {e.notes && <div style={{ fontSize: 13, color: C.text, fontStyle: "italic", lineHeight: 1.5 }}>"{e.notes}"</div>}
         {e.family && <div style={{ fontSize: 11, color: C.muted, marginTop: 4, fontWeight: 700, letterSpacing: "0.4px" }}>FROM {e.family.toUpperCase()}</div>}
-        {isConflict && <div style={{ fontSize: 11, color: C.terra, fontWeight: 700, marginTop: 3 }}>⚠️ Another family has an event this day</div>}
+        {isConflict && <div style={{ fontSize: 11, color: C.terraText, fontWeight: 700, marginTop: 3 }}>⚠️ Another family has an event this day</div>}
       </div>
       {canEdit && !locked && (
         <div style={{ display: "flex", flexDirection: "column", gap: 6, flexShrink: 0 }}>
@@ -816,10 +818,20 @@ function CalendarView({ events, rsvpMap = {}, families = [] }) {
             const isSelected = dateStr === selectedDay;
             const isToday    = dateStr === todayStr;
             const hasEvs     = dayEvs.length > 0;
+            const eventSummary = dayEvs.map(ev => {
+              const name = ev.event_name || ev.eventName || "";
+              const child = ev.child_name || ev.childName || "";
+              return (ev.is_family_event || ev.isFamilyEvent) ? name : `${child} — ${name}`;
+            }).filter(Boolean).join(", ");
             return (
               <div
                 key={i}
+                role={hasEvs ? "button" : undefined}
+                tabIndex={hasEvs ? 0 : undefined}
+                aria-label={hasEvs && dateStr ? `${dayEvs.length} event${dayEvs.length !== 1 ? "s" : ""} on ${new Date(dateStr + "T12:00:00").toLocaleDateString("en-US", { month: "long", day: "numeric" })}: ${eventSummary}` : undefined}
+                title={hasEvs ? eventSummary : undefined}
                 onClick={() => { if (hasEvs && dateStr) setSelectedDay(isSelected ? null : dateStr); }}
+                onKeyDown={hasEvs ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); if (dateStr) setSelectedDay(isSelected ? null : dateStr); } } : undefined}
                 style={{
                   minHeight: isMobile ? 42 : 52,
                   borderRadius: 8,
@@ -836,7 +848,7 @@ function CalendarView({ events, rsvpMap = {}, families = [] }) {
                   userSelect: "none",
                 }}
               >
-                <div style={{ fontSize: isMobile ? 11 : 13, fontWeight: isToday ? 800 : 600, color: isToday ? C.terra : (isSelected ? C.green : C.text) }}>
+                <div style={{ fontSize: isMobile ? 11 : 13, fontWeight: isToday ? 800 : 600, color: isToday ? C.terraText : (isSelected ? C.green : C.text) }}>
                   {day}
                 </div>
                 <div style={{ display: "flex", gap: 2, justifyContent: "center", flexWrap: "wrap", minHeight: isMobile ? 5 : 7 }}>
@@ -875,9 +887,9 @@ function CalendarView({ events, rsvpMap = {}, families = [] }) {
                   <span style={{ fontWeight: 700, fontSize: 14 }}>{ev.isFamilyEvent ? `🎉 ${ev.eventName}` : `${ev.childName} — ${ev.eventName}`}</span>
                   <Badge level={ev.importance} isFamilyEvent={ev.isFamilyEvent} size="sm" />
                 </div>
-                {ev.location && <div style={{ fontSize: 12 }}><a href="#" onClick={e2 => { e2.preventDefault(); openMapsLink(ev.lat && ev.lng ? `https://www.google.com/maps?q=${ev.lat},${ev.lng}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(ev.location)}`); }} style={{ color: C.terra, textDecoration: "none", cursor: "pointer" }}>📍 {ev.location}</a></div>}
+                {ev.location && <div style={{ fontSize: 12 }}><a href="#" onClick={e2 => { e2.preventDefault(); openMapsLink(ev.lat && ev.lng ? `https://www.google.com/maps?q=${ev.lat},${ev.lng}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(ev.location)}`); }} style={{ color: C.terraText, textDecoration: "underline", textUnderlineOffset: "2px", cursor: "pointer" }}>📍 {ev.location}</a></div>}
                 {rsvpMap[ev.id] === "yes"   && <div style={{ fontSize: 11, color: C.green, fontWeight: 700, marginTop: 3 }}>✓ Nana & Papa coming</div>}
-                {rsvpMap[ev.id] === "maybe" && <div style={{ fontSize: 11, color: C.terra, fontWeight: 700, marginTop: 3 }}>◎ Nana & Papa maybe</div>}
+                {rsvpMap[ev.id] === "maybe" && <div style={{ fontSize: 11, color: C.terraText, fontWeight: 700, marginTop: 3 }}>◎ Nana & Papa maybe</div>}
               </div>
               <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, backgroundColor: (famColors[ev.familyId] || C.green) + "18", color: famColors[ev.familyId] || C.green, whiteSpace: "nowrap", flexShrink: 0 }}>
                 {ev.family.split(" ")[0]}
@@ -1285,10 +1297,10 @@ export default function GrandiviteApp() {
           if (cadence === "monthly") {
             badge = f.submitted
               ? <span style={{ fontSize: 11, fontWeight: 700, padding: "4px 12px", borderRadius: 20, backgroundColor: C.greenLight, color: C.green }}>✓ Submitted</span>
-              : <span style={{ fontSize: 11, fontWeight: 700, padding: "4px 12px", borderRadius: 20, backgroundColor: C.terraLight, color: C.terra }}>Pending</span>;
+              : <span style={{ fontSize: 11, fontWeight: 700, padding: "4px 12px", borderRadius: 20, backgroundColor: C.terraLight, color: C.text }}>Pending</span>;
           } else {
             badge = f.needsNudge
-              ? <span style={{ fontSize: 11, fontWeight: 700, padding: "4px 12px", borderRadius: 20, backgroundColor: C.terraLight, color: C.terra }}>{cadenceLabel} · Needs Events</span>
+              ? <span style={{ fontSize: 11, fontWeight: 700, padding: "4px 12px", borderRadius: 20, backgroundColor: C.terraLight, color: C.text }}>{cadenceLabel} · Needs Events</span>
               : <span style={{ fontSize: 11, fontWeight: 700, padding: "4px 12px", borderRadius: 20, backgroundColor: C.greenLight, color: C.green }}>{cadenceLabel} · Scheduled</span>;
           }
           return (
@@ -1417,7 +1429,7 @@ export default function GrandiviteApp() {
                         const inForm  = formRows.filter((r, idx) => idx !== i && r.childName === row.childName).length;
                         const total   = already + inForm;
                         if (total >= MAX) return <div style={{ fontSize: 11, color: C.red,   marginTop: 5, fontWeight: 700 }}>⚠️ Max {MAX} event{MAX !== 1 ? "s" : ""} reached for {row.childName}</div>;
-                        if (total === MAX - 1) return <div style={{ fontSize: 11, color: C.terra, marginTop: 5, fontWeight: 700 }}>This is event {MAX} of {MAX} for {row.childName}</div>;
+                        if (total === MAX - 1) return <div style={{ fontSize: 11, color: C.terraText, marginTop: 5, fontWeight: 700 }}>This is event {MAX} of {MAX} for {row.childName}</div>;
                         return null;
                       })()}
                     </div>
@@ -1470,7 +1482,7 @@ export default function GrandiviteApp() {
               const missingPriority = formRows.some(r => !r.isFamilyEvent && r.childName && r.eventName && r.date && !r.importance);
               return (
                 <>
-                  {missingPriority && <p style={{ fontSize: 12, color: C.terra, margin: "0 0 8px", fontWeight: 700 }}>⚠️ Select a Priority for each event before submitting.</p>}
+                  {missingPriority && <p style={{ fontSize: 12, color: C.terraText, margin: "0 0 8px", fontWeight: 700 }}>⚠️ Select a Priority for each event before submitting.</p>}
                   <div style={{ display: "flex", gap: 12, flexWrap: "wrap", flexDirection: isMobile ? "column" : "row" }}>
                     <Btn variant="outline" onClick={() => setFormRows(r => [...r, BLANK_ROW()])}>+ Add Child's Event</Btn>
                     <Btn variant="outline" onClick={() => setFormRows(r => [...r, BLANK_FAMILY_ROW()])} style={{ borderColor: C.family, color: C.family }}>🎉 Add Family Event</Btn>
@@ -1517,7 +1529,7 @@ export default function GrandiviteApp() {
                               <a href={gcalDay} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: C.muted, textDecoration: "none", fontWeight: 600 }}>📅 Check your calendar →</a>
                               <div style={{ display: "flex", gap: 8 }}>
                                 <button onClick={() => setFamilyRsvp(ev.id, "yes")}   style={{ flex: 1, padding: "8px 12px", borderRadius: 8, border: `1.5px solid ${C.green}`, backgroundColor: C.white, color: C.green, fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: "'Lato', sans-serif" }}>✓ We'll be there!</button>
-                                <button onClick={() => setFamilyRsvp(ev.id, "maybe")} style={{ flex: 1, padding: "8px 12px", borderRadius: 8, border: `1.5px solid ${C.terra}`, backgroundColor: C.white, color: C.terra, fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: "'Lato', sans-serif" }}>◎ Maybe</button>
+                                <button onClick={() => setFamilyRsvp(ev.id, "maybe")} style={{ flex: 1, padding: "8px 12px", borderRadius: 8, border: `1.5px solid ${C.terra}`, backgroundColor: C.white, color: C.terraText, fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: "'Lato', sans-serif" }}>◎ Maybe</button>
                               </div>
                             </>
                           )}
@@ -1531,7 +1543,7 @@ export default function GrandiviteApp() {
                           )}
                           {myRsvp === "maybe" && (
                             <>
-                              <div style={{ padding: "8px 12px", borderRadius: 8, backgroundColor: C.terraLight, border: `1.5px solid ${C.terra}`, color: C.terra, fontWeight: 700, fontSize: 12, textAlign: "center" }}>
+                              <div style={{ padding: "8px 12px", borderRadius: 8, backgroundColor: C.terraLight, border: `1.5px solid ${C.terra}`, color: C.terraText, fontWeight: 700, fontSize: 12, textAlign: "center" }}>
                                 ◎ Maybe! <button onClick={() => setFamilyRsvp(ev.id, null)} style={{ background: "none", border: "none", color: C.muted, fontSize: 11, cursor: "pointer", marginLeft: 8 }}>change</button>
                               </div>
                               {calBtns}
@@ -1571,7 +1583,7 @@ export default function GrandiviteApp() {
       {/* Conflict summary banner */}
       {conflicts.length > 0 && (
         <div style={{ ...card, backgroundColor: C.terraLight, border: `2px solid ${C.terraBorder}` }}>
-          <div style={{ fontWeight: 700, color: C.terra, fontSize: 14, marginBottom: 10 }}>
+          <div style={{ fontWeight: 700, color: C.terraText, fontSize: 14, marginBottom: 10 }}>
             ⚠️ {conflicts.length} Scheduling Conflict{conflicts.length > 1 ? "s" : ""} — Review Before Sending
           </div>
           {conflicts.map(({ date, events: cEvs }) => (
@@ -1602,7 +1614,7 @@ export default function GrandiviteApp() {
             {sortedEvents.filter(ev => rsvpMap[ev.id]).map(ev => (
               <div key={ev.id} style={{ fontSize: 13, marginBottom: 4, display: "flex", gap: 8, alignItems: "center" }}>
                 <span style={{ fontSize: 14 }}>{rsvpMap[ev.id] === "yes" ? "✓" : "◎"}</span>
-                <span style={{ color: rsvpMap[ev.id] === "yes" ? C.green : C.terra, fontWeight: 700 }}>{rsvpMap[ev.id] === "yes" ? "Confirmed" : "Maybe"}</span>
+                <span style={{ color: rsvpMap[ev.id] === "yes" ? C.green : C.terraText, fontWeight: 700 }}>{rsvpMap[ev.id] === "yes" ? "Confirmed" : "Maybe"}</span>
                 <span style={{ color: C.muted }}>—</span>
                 <span>{ev.childName}: {ev.eventName} · {formatShort(ev.date)}</span>
               </div>
@@ -1701,10 +1713,10 @@ export default function GrandiviteApp() {
             {ev.isFamilyEvent && ev.family && <div style={{ fontSize: 13, color: C.family, fontWeight: 700, marginBottom: 8 }}>Hosted by {ev.family}</div>}
             <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: ev.notes ? 12 : 14 }}>
               {ev.time     && <div style={{ fontSize: 13, color: C.muted }}>🕐 {ev.time}</div>}
-              {ev.location && <div style={{ fontSize: 13 }}><a href="#" onClick={e2 => { e2.preventDefault(); openMapsLink(ev.lat && ev.lng ? `https://www.google.com/maps?q=${ev.lat},${ev.lng}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(ev.location)}`); }} style={{ color: C.terra, textDecoration: "none", fontWeight: 700, cursor: "pointer" }}>📍 {ev.location} →</a></div>}
+              {ev.location && <div style={{ fontSize: 13 }}><a href="#" onClick={e2 => { e2.preventDefault(); openMapsLink(ev.lat && ev.lng ? `https://www.google.com/maps?q=${ev.lat},${ev.lng}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(ev.location)}`); }} style={{ color: C.terraText, textDecoration: "underline", textUnderlineOffset: "2px", fontWeight: 700, cursor: "pointer" }}>📍 {ev.location} →</a></div>}
             </div>
             {ev.notes && <div style={{ padding: "12px 16px", backgroundColor: C.cream, borderRadius: 10, fontSize: 14, color: C.text, lineHeight: 1.7, fontStyle: "italic", marginBottom: 14 }}>"{ev.notes}"</div>}
-            <div style={{ padding: "10px 16px", backgroundColor: info.bg, borderRadius: 10, fontSize: 13, color: info.color, fontWeight: 700, borderLeft: `3px solid ${info.color}`, marginBottom: 12 }}>💚 {info.msg}</div>
+            <div style={{ padding: "10px 16px", backgroundColor: info.bg, borderRadius: 10, fontSize: 13, color: C.text, fontWeight: 700, borderLeft: `3px solid ${info.color}`, marginBottom: 12 }}>💚 {info.msg}</div>
             {(() => {
               const [cy, cm, cd] = ev.date.split("-").map(Number);
               const gcalDay = `https://calendar.google.com/calendar/r/day/${cy}/${cm}/${cd}`;
@@ -1721,7 +1733,7 @@ export default function GrandiviteApp() {
                       <a href={gcalDay} target="_blank" rel="noreferrer" style={{ fontSize: 13, color: C.muted, textDecoration: "none", fontWeight: 600 }}>📅 Check your calendar →</a>
                       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                         <button onClick={() => { setRsvp(ev.id, "yes"); addToGoogleCalendar(ev); }} style={{ flex: 1, padding: "10px 14px", borderRadius: 10, border: `2px solid ${C.green}`, backgroundColor: C.white, color: C.green, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'Lato', sans-serif" }}>✓ We'll be there!</button>
-                        <button onClick={() => setRsvp(ev.id, "maybe")} style={{ flex: 1, padding: "10px 14px", borderRadius: 10, border: `2px solid ${C.terra}`, backgroundColor: C.white, color: C.terra, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'Lato', sans-serif" }}>◎ Maybe</button>
+                        <button onClick={() => setRsvp(ev.id, "maybe")} style={{ flex: 1, padding: "10px 14px", borderRadius: 10, border: `2px solid ${C.terra}`, backgroundColor: C.white, color: C.terraText, fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'Lato', sans-serif" }}>◎ Maybe</button>
                       </div>
                     </>
                   )}
@@ -1735,7 +1747,7 @@ export default function GrandiviteApp() {
                   )}
                   {rsvpMap[ev.id] === "maybe" && (
                     <>
-                      <div style={{ padding: "10px 14px", borderRadius: 10, backgroundColor: C.terraLight, border: `2px solid ${C.terra}`, color: C.terra, fontWeight: 700, fontSize: 13, textAlign: "center" }}>
+                      <div style={{ padding: "10px 14px", borderRadius: 10, backgroundColor: C.terraLight, border: `2px solid ${C.terra}`, color: C.terraText, fontWeight: 700, fontSize: 13, textAlign: "center" }}>
                         ◎ Maybe — we'll try! <button onClick={() => setRsvp(ev.id, null)} style={{ background: "none", border: "none", color: C.muted, fontSize: 11, cursor: "pointer", marginLeft: 8 }}>change</button>
                       </div>
                       {calBtns}
@@ -1798,10 +1810,10 @@ export default function GrandiviteApp() {
           }}
         />
       )}
-      <div style={{ backgroundColor: C.white, borderBottom: `1px solid ${C.border}`, padding: `12px ${isMobile ? 14 : 24}px`, display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 100, boxShadow: "0 2px 12px rgba(44,74,62,0.07)", gap: 8 }}>
+      <div style={{ backgroundColor: "rgba(253,252,250,0.96)", backdropFilter: "blur(8px)", borderBottom: `1px solid ${C.border}`, padding: `0 ${isMobile ? 14 : 24}px`, height: 60, display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 100, gap: 8 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-          <span style={{ ...serif, fontSize: isMobile ? 17 : 20, color: C.green, fontWeight: 700, whiteSpace: "nowrap" }}>{orgData?.app_title || orgData?.name || "Grandivite"}</span>
-          {!isMobile && <span style={{ fontSize: 11, color: C.muted, letterSpacing: "0.5px", fontWeight: 700, whiteSpace: "nowrap" }}>GRANDIVITE.COM</span>}
+          <span style={{ fontSize: isMobile ? 18 : 22 }}>{orgData?.app_emoji || "🌿"}</span>
+          <span style={{ fontFamily: "'Playfair Display', serif", fontSize: isMobile ? 17 : 20, color: C.green, fontWeight: 700, whiteSpace: "nowrap" }}>{orgData?.app_title || orgData?.name || "Grandivite"}</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
           {!isMobile && <span style={{ fontSize: 12, color: C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 200 }}>{googleUser?.email}</span>}

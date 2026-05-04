@@ -11,12 +11,13 @@ const C = {
   primaryLight: "#E5F0EF",
   primaryBorder:"#A8C9C6",
   accent:       "#E07A5F",
+  accentText:   "#C75A3F", // AA-compliant coral for text (was #E07A5F — ratio 2.88, fails)
   accentLight:  "#FDEEE9",
   accentBorder: "#F0B898",
   cream:        "#FDFCFA",
   white:        "#FFFFFF",
   text:         "#1A2A28",
-  muted:        "#6B7B79",
+  muted:        "#5C6B6A", // darkened from #6B7B79 for AA compliance
   border:       "#E2DAD4",
   red:          "#C0392B",
 };
@@ -123,7 +124,17 @@ export default function LandingPage() {
     <div style={{ ...sans, backgroundColor: C.cream, color: C.text }}>
       {/* ── NAV ── */}
       <nav style={{ position: "sticky", top: 0, zIndex: 100, backgroundColor: "rgba(253,252,250,0.96)", backdropFilter: "blur(8px)", borderBottom: `1px solid ${C.border}`, padding: "0 24px", height: 60, display: "flex", alignItems: "center", justifyContent: "space-between", maxWidth: 1080, margin: "0 auto", width: "100%" }}>
-        <div style={{ ...serif, fontSize: 20, color: C.primary, fontWeight: 700 }}>🌿 Grandivite</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <svg width="44" height="36" viewBox="0 0 64 56" aria-hidden="true">
+            <circle cx="20" cy="14" r="4.5" fill="#8B6F47"/>
+            <path d="M14 50 Q14 22 20 22 Q26 22 26 50 Z" fill="#8B6F47"/>
+            <line x1="26" y1="32" x2="30" y2="50" stroke="#8B6F47" strokeWidth="1.8" strokeLinecap="round"/>
+            <circle cx="42" cy="22" r="3.6" fill="#E07A5F"/>
+            <path d="M37 50 Q37 30 42 30 Q47 30 47 50 Z" fill="#E07A5F"/>
+            <path d="M27 36 Q34 32 38 36" stroke="#2C5F5A" strokeWidth="2.4" fill="none" strokeLinecap="round"/>
+          </svg>
+          <span style={{ ...serif, fontSize: 20, color: C.primary, fontWeight: 700 }}>Grandivite</span>
+        </div>
         <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
           <button onClick={() => setShowSignIn(true)} style={{ background: "none", border: `1.5px solid ${C.primary}`, color: C.primary, padding: "8px 18px", borderRadius: 8, cursor: "pointer", fontWeight: 700, fontSize: 13, ...sans }}>
             Sign In
@@ -152,7 +163,7 @@ export default function LandingPage() {
               Sign In
             </button>
           </div>
-          <p style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", marginTop: 16 }}>Free to start · No credit card required</p>
+          <p style={{ fontSize: 12, color: "rgba(255,255,255,0.75)", marginTop: 16 }}>Free to start · No credit card required</p>
         </div>
       </section>
 
@@ -202,9 +213,17 @@ export default function LandingPage() {
       </section>
 
       {/* ── FOOTER ── */}
-      <footer style={{ borderTop: `1px solid ${C.border}`, padding: "24px", textAlign: "center", color: C.muted, fontSize: 12 }}>
-        <span style={{ ...serif, color: C.primary, fontWeight: 700, fontSize: 14 }}>🌿 Grandivite</span>
-        <span style={{ margin: "0 12px" }}>·</span>
+      <footer style={{ borderTop: `1px solid ${C.border}`, padding: "24px", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, color: C.muted, fontSize: 12, flexWrap: "wrap" }}>
+        <svg width="28" height="22" viewBox="0 0 64 56" aria-hidden="true">
+          <circle cx="20" cy="14" r="4.5" fill="#8B6F47"/>
+          <path d="M14 50 Q14 22 20 22 Q26 22 26 50 Z" fill="#8B6F47"/>
+          <line x1="26" y1="32" x2="30" y2="50" stroke="#8B6F47" strokeWidth="1.8" strokeLinecap="round"/>
+          <circle cx="42" cy="22" r="3.6" fill="#E07A5F"/>
+          <path d="M37 50 Q37 30 42 30 Q47 30 47 50 Z" fill="#E07A5F"/>
+          <path d="M27 36 Q34 32 38 36" stroke="#2C5F5A" strokeWidth="2.4" fill="none" strokeLinecap="round"/>
+        </svg>
+        <span style={{ ...serif, color: C.primary, fontWeight: 700, fontSize: 14 }}>Grandivite</span>
+        <span>·</span>
         <span>Keep your family connected around the moments that matter.</span>
       </footer>
     </div>

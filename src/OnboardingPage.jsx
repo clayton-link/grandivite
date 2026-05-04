@@ -15,7 +15,7 @@ const C = {
   cream:        "#FDFCFA",
   white:        "#FFFFFF",
   text:         "#1A2A28",
-  muted:        "#6B7B79",
+  muted:        "#5C6B6A", // darkened from #6B7B79 for AA compliance
   border:       "#E2DAD4",
   red:          "#C0392B",
 };
