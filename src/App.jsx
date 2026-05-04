@@ -1425,40 +1425,42 @@ export default function GrandiviteApp() {
                   </div>
                 )}
                 <div style={{ marginBottom: 16 }}><span style={lbl}>Date</span><input style={{ ...inp, display: "block", width: "100%" }} type="date" min={todayISO} value={row.date} onChange={e => updateRow(i, "date", e.target.value)} /></div>
-                <div style={{ marginBottom: 16 }}><span style={lbl}>Time (Optional)</span><input style={{ ...inp, display: "block", width: "100%" }} type="text" placeholder="e.g. 6:30 PM" value={row.time} onChange={e => updateRow(i, "time", e.target.value)} /></div>
-                <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 16, marginBottom: 16 }}>
-                  <div>
-                    <span style={lbl}>Location (Optional)</span>
-                    <PlacesInput
-                      value={row.location}
-                      onChange={(label, lat, lng) => {
-                        updateRow(i, "location", label);
-                        updateRow(i, "lat", lat);
-                        updateRow(i, "lng", lng);
-                      }}
-                    />
-                  </div>
-                  {!row.isFamilyEvent && (
-                    <div>
-                      <span style={lbl}>Priority</span>
-                      <select style={inp} value={row.importance} onChange={e => updateRow(i, "importance", e.target.value)}>
-                        <option value="">Select priority...</option>
-                        <option value="3">⭐⭐⭐ Milestone</option>
-                        <option value="2">⭐⭐ Intentional 1:1 Time</option>
-                        <option value="1">⭐ Group Event</option>
-                      </select>
+                {!row.isFamilyEvent && (
+                  <>
+                    <div style={{ marginBottom: 16 }}><span style={lbl}>Time (Optional)</span><input style={{ ...inp, display: "block", width: "100%" }} type="text" placeholder="e.g. 6:30 PM" value={row.time} onChange={e => updateRow(i, "time", e.target.value)} /></div>
+                    <div style={{ marginBottom: 16 }}>
+                      <span style={lbl}>Location (Optional)</span>
+                      <PlacesInput
+                        value={row.location}
+                        onChange={(label, lat, lng) => {
+                          updateRow(i, "location", label);
+                          updateRow(i, "lat", lat);
+                          updateRow(i, "lng", lng);
+                        }}
+                      />
                     </div>
-                  )}
-                </div>
+                  </>
+                )}
+                {!row.isFamilyEvent && (
+                  <div style={{ marginBottom: 16 }}>
+                    <span style={lbl}>Priority</span>
+                    <select style={inp} value={row.importance} onChange={e => updateRow(i, "importance", e.target.value)}>
+                      <option value="">Select priority...</option>
+                      <option value="3">⭐⭐⭐ Milestone</option>
+                      <option value="2">⭐⭐ Intentional 1:1 Time</option>
+                      <option value="1">⭐ Group Event</option>
+                    </select>
+                  </div>
+                )}
                 <div>
                   <NotesField
                     label={row.isFamilyEvent ? "Details for grandparents (Optional)" : noteLabel}
                     placeholder={row.isFamilyEvent ? "What should they know? Dress code, what to bring, etc." : "Share what makes this moment special..."}
                     value={row.notes}
                     onChange={v => updateRow(i, "notes", v)}
-                    childName={row.childName}
+                    childName={row.isFamilyEvent ? (fam?.name || "") : row.childName}
                     eventName={row.eventName}
-                    importance={row.importance}
+                    importance={row.isFamilyEvent ? 1 : row.importance}
                   />
                 </div>
               </div>
