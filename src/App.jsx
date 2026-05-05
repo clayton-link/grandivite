@@ -200,7 +200,7 @@ const db = {
   insertEvent: async (cycleId, familyId, familyName, row) => {
     const { data } = await supabase.from("events").insert({
       cycle_id: cycleId, family_id: familyId, family_name: familyName,
-      child_name: row.childName || null, event_name: row.eventName, date: row.date,
+      child_name: row.childName || (row.isFamilyEvent ? "" : null), event_name: row.eventName, date: row.date,
       time: row.time || null, location: row.location || null,
       lat: row.lat || null, lng: row.lng || null,
       importance: parseInt(row.importance) || 1, notes: row.notes || null,
