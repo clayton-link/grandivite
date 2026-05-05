@@ -1,13 +1,6 @@
 import { useState, useEffect, useRef } from "react";
-import { createClient } from "@supabase/supabase-js";
+import { supabase } from "./supabaseClient.js";
 import { adminDb } from "./admin/adminDb.js";
-
-// ── SUPABASE CONFIG ───────────────────────────────────────────────────────────
-// Get these from: supabase.com → your project → Settings → API
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-// ─────────────────────────────────────────────────────────────────────────────
 
 // ── GOOGLE MAPS CONFIG ────────────────────────────────────────────────────────
 // Get from: console.cloud.google.com → APIs & Services → Credentials
@@ -258,6 +251,9 @@ const db = {
   upsertFamilyRsvp: async (eventId, familyId, status) => {
     if (!status) { await supabase.from("family_rsvps").delete().eq("event_id", eventId).eq("family_id", familyId); }
     else { await supabase.from("family_rsvps").upsert({ event_id: eventId, family_id: familyId, status, updated_at: new Date().toISOString() }, { onConflict: "event_id,family_id" }); }
+  },
+  claimHost: async (eventId, hostName) => {
+    await supabase.from("events").update({ child_name: hostName }).eq("id", eventId);
   },
 };
 
@@ -527,7 +523,7 @@ function loadGoogleMapsPlacesScript() {
 
     const script = document.createElement("script");
     script.id = "google-maps-script";
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_KEY}&libraries=places&loading=async`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_KEY}&libraries=places`;
     script.async = true;
     script.defer = true;
     script.onload = () => {
@@ -705,7 +701,10 @@ function EventCard({ ev, canEdit, onEdit, onRemove, locked, isConflict = false }
         <div style={{ fontSize: 12, color: C.muted, marginBottom: 2 }}>{formatDate(e.date)}{e.time ? ` · ${e.time}` : ""}</div>
         {e.location && <div style={{ fontSize: 12, marginBottom: 4 }}><a href="#" onClick={e2 => { e2.preventDefault(); openMapsLink(e.lat && e.lng ? `https://www.google.com/maps?q=${e.lat},${e.lng}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(e.location)}`); }} style={{ color: C.terraText, textDecoration: "underline", textUnderlineOffset: "2px", fontWeight: 600, cursor: "pointer" }}>📍 {e.location}</a></div>}
         {e.notes && <div style={{ fontSize: 13, color: C.text, fontStyle: "italic", lineHeight: 1.5 }}>"{e.notes}"</div>}
-        {e.family && <div style={{ fontSize: 11, color: C.muted, marginTop: 4, fontWeight: 700, letterSpacing: "0.4px" }}>FROM {e.family.toUpperCase()}</div>}
+        {e.isFamilyEvent
+          ? (e.childName && <div style={{ fontSize: 11, color: C.family, marginTop: 4, fontWeight: 700, letterSpacing: "0.4px" }}>HOSTED BY {e.childName.toUpperCase()}</div>)
+          : (e.family && <div style={{ fontSize: 11, color: C.muted, marginTop: 4, fontWeight: 700, letterSpacing: "0.4px" }}>FROM {e.family.toUpperCase()}</div>)
+        }
         {isConflict && <div style={{ fontSize: 11, color: C.terraText, fontWeight: 700, marginTop: 3 }}>⚠️ Another family has an event this day</div>}
       </div>
       {canEdit && !locked && (
@@ -1219,7 +1218,7 @@ export default function GrandiviteApp() {
       const skipped = [];
       for (const row of valid) {
         if (row.isFamilyEvent) {
-          toSubmit.push({ ...row, childName: familyName });
+          toSubmit.push({ ...row });
           continue;
         }
         const key = row.childName.trim().toLowerCase();
@@ -1242,6 +1241,20 @@ export default function GrandiviteApp() {
       const saved = results.filter(r => r.status === "fulfilled" && r.value).map(r => r.value);
       const failCount = toSubmit.length - saved.length;
       saved.forEach(data => setEvents(p => [...p, data]));
+      saved.filter(e => e.is_family_event).forEach(e => {
+        fetch("/api/add-calendar-event", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            eventName: e.event_name,
+            date: e.date,
+            time: e.time,
+            location: e.location,
+            notes: e.notes,
+            familyName: e.family_name,
+          }),
+        }).catch(() => {});
+      });
       if (failCount > 0) {
         alert(`${saved.length} event${saved.length !== 1 ? "s" : ""} saved, but ${failCount} couldn't be saved — please try submitting again.`);
       }
@@ -1367,6 +1380,11 @@ export default function GrandiviteApp() {
   const Step2 = () => {
     const fam       = auth.family;
     const firstName = fam?.name.split(" ")[0] || "";
+    const signUpToHost = async (eventId) => {
+      const hostName = fam.name.split(" ").slice(0, 3).join(" ");
+      await db.claimHost(eventId, hostName);
+      setEvents(prev => prev.map(e => e.id === eventId ? { ...e, child_name: hostName } : e));
+    };
     return (
       <div>
         <h2 style={{ ...serif, fontSize: 28, color: C.green, margin: "0 0 6px" }}>Submit Your Events</h2>
@@ -1376,7 +1394,16 @@ export default function GrandiviteApp() {
           <div style={card}>
             <h3 style={{ ...serif, fontSize: 18, margin: "0 0 4px" }}>Your Submitted Events</h3>
             <p style={{ fontSize: 13, color: C.muted, margin: "0 0 12px" }}>Edit or remove these until the coordinator locks the calendar.</p>
-            {myEvents.map(ev => <EventCard key={ev.id} ev={ev} canEdit={!locked} onEdit={setEditingEvent} onRemove={removeEvent} locked={locked} />)}
+            {myEvents.map(ev => (
+              <div key={ev.id}>
+                <EventCard ev={ev} canEdit={!locked} onEdit={setEditingEvent} onRemove={removeEvent} locked={locked} />
+                {ev.isFamilyEvent && !ev.childName && !locked && (
+                  <div style={{ padding: "4px 12px 12px" }}>
+                    <button onClick={() => signUpToHost(ev.id)} style={{ fontSize: 12, fontWeight: 700, color: C.family, background: "none", border: `1.5px solid ${C.family}`, borderRadius: 8, padding: "6px 14px", cursor: "pointer", fontFamily: "'Lato', sans-serif" }}>I'll host this →</button>
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
         )}
 
@@ -1404,7 +1431,7 @@ export default function GrandiviteApp() {
                 {row.isFamilyEvent ? (
                   <>
                     <div style={{ marginBottom: 16, padding: "10px 14px", backgroundColor: C.familyLight, borderRadius: 8, fontSize: 13, color: C.family, fontWeight: 600 }}>
-                      Hosted by {fam?.name || "your family"} — this will appear as an invitation for grandparents.
+                      This will appear as a shared family invitation for grandparents. Any family can sign up to host.
                     </div>
                     <div style={{ marginBottom: 16 }}><span style={lbl}>Event / Occasion</span><input style={inp} placeholder="e.g. Mother's Day Brunch, Christmas Dinner" value={row.eventName} onChange={e => updateRow(i, "eventName", e.target.value)} /></div>
                   </>
@@ -1470,7 +1497,7 @@ export default function GrandiviteApp() {
                     placeholder={row.isFamilyEvent ? "What should they know? Dress code, what to bring, etc." : "Share what makes this moment special..."}
                     value={row.notes}
                     onChange={v => updateRow(i, "notes", v)}
-                    childName={row.isFamilyEvent ? (fam?.name || "") : row.childName}
+                    childName={row.isFamilyEvent ? "" : row.childName}
                     eventName={row.eventName}
                     importance={row.isFamilyEvent ? 1 : row.importance}
                   />
@@ -1506,11 +1533,17 @@ export default function GrandiviteApp() {
                 return (
                   <div key={ev.id} style={{ padding: "14px 0", borderBottom: `1px solid ${C.border}` }}>
                     <div style={{ display: "flex", gap: 10, alignItems: "flex-start", marginBottom: 8 }}>
-                      <Badge level={ev.importance} size="sm" />
+                      <Badge level={ev.importance} size="sm" isFamilyEvent={ev.isFamilyEvent} />
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontWeight: 700, fontSize: 14 }}>{ev.childName} — {ev.eventName}</div>
+                        <div style={{ fontWeight: 700, fontSize: 14 }}>{ev.isFamilyEvent ? `🎉 ${ev.eventName}` : `${ev.childName} — ${ev.eventName}`}</div>
                         <div style={{ fontSize: 12, color: C.muted }}>{formatDate(ev.date)}{ev.time ? ` · ${ev.time}` : ""}</div>
-                        <div style={{ fontSize: 11, color: famColor, fontWeight: 700, marginTop: 2 }}>{ev.family.toUpperCase()}</div>
+                        {ev.isFamilyEvent
+                          ? (ev.childName
+                              ? <div style={{ fontSize: 11, color: C.family, fontWeight: 700, marginTop: 2 }}>Hosted by {ev.childName}</div>
+                              : <button onClick={() => signUpToHost(ev.id)} style={{ marginTop: 4, fontSize: 11, fontWeight: 700, color: C.family, background: "none", border: `1.5px solid ${C.family}`, borderRadius: 6, padding: "3px 10px", cursor: "pointer", fontFamily: "'Lato', sans-serif" }}>Sign up to host →</button>
+                            )
+                          : <div style={{ fontSize: 11, color: famColor, fontWeight: 700, marginTop: 2 }}>{ev.family.toUpperCase()}</div>
+                        }
                       </div>
                     </div>
                     {(() => {
@@ -1710,7 +1743,7 @@ export default function GrandiviteApp() {
               <span style={{ fontSize: 13, color: C.muted }}>{formatDate(ev.date)}</span>
             </div>
             <h3 style={{ ...serif, fontSize: 21, margin: "0 0 8px", color: C.text }}>{ev.isFamilyEvent ? ev.eventName : `${ev.childName}'s ${ev.eventName}`}</h3>
-            {ev.isFamilyEvent && ev.family && <div style={{ fontSize: 13, color: C.family, fontWeight: 700, marginBottom: 8 }}>Hosted by {ev.family}</div>}
+            {ev.isFamilyEvent && ev.childName && <div style={{ fontSize: 13, color: C.family, fontWeight: 700, marginBottom: 8 }}>Hosted by {ev.childName}</div>}
             <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: ev.notes ? 12 : 14 }}>
               {ev.time     && <div style={{ fontSize: 13, color: C.muted }}>🕐 {ev.time}</div>}
               {ev.location && <div style={{ fontSize: 13 }}><a href="#" onClick={e2 => { e2.preventDefault(); openMapsLink(ev.lat && ev.lng ? `https://www.google.com/maps?q=${ev.lat},${ev.lng}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(ev.location)}`); }} style={{ color: C.terraText, textDecoration: "underline", textUnderlineOffset: "2px", fontWeight: 700, cursor: "pointer" }}>📍 {ev.location} →</a></div>}
