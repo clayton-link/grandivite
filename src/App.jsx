@@ -1379,11 +1379,15 @@ export default function GrandiviteApp() {
   // ── STEP 2 ────────────────────────────────────────────────────────────────
   const Step2 = () => {
     const fam       = auth.family;
-    const firstName = fam?.name.split(" ")[0] || "";
+    const firstName    = fam?.name.split(" ")[0] || "";
+    const myFamilyName = fam?.name.split(" ").slice(0, 3).join(" ") || "";
     const signUpToHost = async (eventId) => {
-      const hostName = fam.name.split(" ").slice(0, 3).join(" ");
-      await db.claimHost(eventId, hostName);
-      setEvents(prev => prev.map(e => e.id === eventId ? { ...e, child_name: hostName } : e));
+      await db.claimHost(eventId, myFamilyName);
+      setEvents(prev => prev.map(e => e.id === eventId ? { ...e, child_name: myFamilyName } : e));
+    };
+    const cancelHost = async (eventId) => {
+      await db.claimHost(eventId, "");
+      setEvents(prev => prev.map(e => e.id === eventId ? { ...e, child_name: "" } : e));
     };
     return (
       <div>
@@ -1397,9 +1401,10 @@ export default function GrandiviteApp() {
             {myEvents.map(ev => (
               <div key={ev.id}>
                 <EventCard ev={ev} canEdit={!locked} onEdit={setEditingEvent} onRemove={removeEvent} locked={locked} />
-                {ev.isFamilyEvent && !ev.childName && !locked && (
+                {ev.isFamilyEvent && !locked && (
                   <div style={{ padding: "4px 12px 12px" }}>
-                    <button onClick={() => signUpToHost(ev.id)} style={{ fontSize: 12, fontWeight: 700, color: C.family, background: "none", border: `1.5px solid ${C.family}`, borderRadius: 8, padding: "6px 14px", cursor: "pointer", fontFamily: "'Lato', sans-serif" }}>I'll host this →</button>
+                    {!ev.childName && <button onClick={() => signUpToHost(ev.id)} style={{ fontSize: 12, fontWeight: 700, color: C.family, background: "none", border: `1.5px solid ${C.family}`, borderRadius: 8, padding: "6px 14px", cursor: "pointer", fontFamily: "'Lato', sans-serif" }}>I'll host this →</button>}
+                    {ev.childName === myFamilyName && <button onClick={() => cancelHost(ev.id)} style={{ fontSize: 12, fontWeight: 700, color: C.muted, background: "none", border: `1.5px solid ${C.border}`, borderRadius: 8, padding: "6px 14px", cursor: "pointer", fontFamily: "'Lato', sans-serif" }}>Cancel hosting</button>}
                   </div>
                 )}
               </div>
@@ -1538,9 +1543,14 @@ export default function GrandiviteApp() {
                         <div style={{ fontWeight: 700, fontSize: 14 }}>{ev.isFamilyEvent ? `🎉 ${ev.eventName}` : `${ev.childName} — ${ev.eventName}`}</div>
                         <div style={{ fontSize: 12, color: C.muted }}>{formatDate(ev.date)}{ev.time ? ` · ${ev.time}` : ""}</div>
                         {ev.isFamilyEvent
-                          ? (ev.childName
-                              ? <div style={{ fontSize: 11, color: C.family, fontWeight: 700, marginTop: 2 }}>Hosted by {ev.childName}</div>
-                              : <button onClick={() => signUpToHost(ev.id)} style={{ marginTop: 4, fontSize: 11, fontWeight: 700, color: C.family, background: "none", border: `1.5px solid ${C.family}`, borderRadius: 6, padding: "3px 10px", cursor: "pointer", fontFamily: "'Lato', sans-serif" }}>Sign up to host →</button>
+                          ? (!ev.childName
+                              ? <button onClick={() => signUpToHost(ev.id)} style={{ marginTop: 4, fontSize: 11, fontWeight: 700, color: C.family, background: "none", border: `1.5px solid ${C.family}`, borderRadius: 6, padding: "3px 10px", cursor: "pointer", fontFamily: "'Lato', sans-serif" }}>Sign up to host →</button>
+                              : ev.childName === myFamilyName
+                                ? <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
+                                    <span style={{ fontSize: 11, color: C.family, fontWeight: 700 }}>Hosted by you</span>
+                                    <button onClick={() => cancelHost(ev.id)} style={{ fontSize: 10, color: C.muted, background: "none", border: "none", cursor: "pointer", textDecoration: "underline", fontFamily: "'Lato', sans-serif", padding: 0 }}>Cancel</button>
+                                  </div>
+                                : <div style={{ fontSize: 11, color: C.family, fontWeight: 700, marginTop: 2 }}>Hosted by {ev.childName}</div>
                             )
                           : <div style={{ fontSize: 11, color: famColor, fontWeight: 700, marginTop: 2 }}>{ev.family.toUpperCase()}</div>
                         }
@@ -1734,7 +1744,7 @@ export default function GrandiviteApp() {
         <div style={{ fontSize: 11, opacity: 0.65, letterSpacing: "1.2px", fontWeight: 700 }}>{cycle?.month_label?.toUpperCase()} · GRANDIVITE.COM</div>
       </div>
 
-      {chronoEvents.map(ev => {
+      {chronoEvents.filter(ev => !ev.isFamilyEvent || ev.childName).map(ev => {
         const info = ev.isFamilyEvent ? familyInfo() : impInfo(ev.importance);
         return (
           <div key={ev.id} style={{ ...card, borderLeft: `5px solid ${info.color}`, padding: isMobile ? "16px 14px" : "22px 24px" }}>
