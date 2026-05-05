@@ -457,15 +457,17 @@ function NotesField({ value, onChange, label, placeholder, childName, eventName,
   const [loading, setLoading] = useState(false);
   const [original, setOriginal] = useState(null);
 
+  const isReady   = !!(value?.trim() && (childName || eventName));
+  const isDisabled = loading || !isReady;
+
   const handlePolish = async () => {
-    if (!value?.trim() || !childName || !eventName || !importance) return;
+    if (!isReady) return;
     setLoading(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
       const res = await fetch("/api/polish-note", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session?.access_token}` },
-        body: JSON.stringify({ childName, eventName, importance: parseInt(importance), note: value }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ childName, eventName, importance: parseInt(importance) || 1, note: value }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error || `HTTP ${res.status}`);
@@ -493,9 +495,9 @@ function NotesField({ value, onChange, label, placeholder, childName, eventName,
         <textarea style={{ ...inp, resize: "vertical", minHeight: 72 }} placeholder={placeholder} value={value} onChange={handleChange} />
         {value?.trim() && (
           <button
-            disabled={loading || !childName || !eventName || !importance}
+            disabled={isDisabled}
             onClick={handlePolish}
-            style={{ position: "absolute", bottom: 8, right: 8, backgroundColor: loading ? C.border : C.green, border: "none", borderRadius: 6, padding: "4px 10px", fontSize: 11, fontWeight: 700, color: loading ? C.muted : C.white, cursor: (loading || !childName || !eventName || !importance) ? "default" : "pointer", fontFamily: "'Lato', sans-serif" }}
+            style={{ position: "absolute", bottom: 8, right: 8, backgroundColor: isDisabled ? C.border : C.green, border: "none", borderRadius: 6, padding: "4px 10px", fontSize: 11, fontWeight: 700, color: isDisabled ? C.muted : C.white, cursor: isDisabled ? "default" : "pointer", fontFamily: "'Lato', sans-serif", opacity: isDisabled && !loading ? 0.6 : 1 }}
           >
             {loading ? "Polishing…" : "✨ Polish"}
           </button>
@@ -1469,22 +1471,18 @@ export default function GrandiviteApp() {
                   </div>
                 )}
                 <div style={{ marginBottom: 16 }}><span style={lbl}>Date</span><input style={{ ...inp, display: "block", width: "100%" }} type="date" min={todayISO} value={row.date} onChange={e => updateRow(i, "date", e.target.value)} /></div>
-                {!row.isFamilyEvent && (
-                  <>
-                    <div style={{ marginBottom: 16 }}><span style={lbl}>Time (Optional)</span><input style={{ ...inp, display: "block", width: "100%" }} type="text" placeholder="e.g. 6:30 PM" value={row.time} onChange={e => updateRow(i, "time", e.target.value)} /></div>
-                    <div style={{ marginBottom: 16 }}>
-                      <span style={lbl}>Location (Optional)</span>
-                      <PlacesInput
-                        value={row.location}
-                        onChange={(label, lat, lng) => {
-                          updateRow(i, "location", label);
-                          updateRow(i, "lat", lat);
-                          updateRow(i, "lng", lng);
-                        }}
-                      />
-                    </div>
-                  </>
-                )}
+                <div style={{ marginBottom: 16 }}><span style={lbl}>Time (Optional)</span><input style={{ ...inp, display: "block", width: "100%" }} type="text" placeholder="e.g. 6:30 PM" value={row.time} onChange={e => updateRow(i, "time", e.target.value)} /></div>
+                <div style={{ marginBottom: 16 }}>
+                  <span style={lbl}>Location (Optional)</span>
+                  <PlacesInput
+                    value={row.location}
+                    onChange={(label, lat, lng) => {
+                      updateRow(i, "location", label);
+                      updateRow(i, "lat", lat);
+                      updateRow(i, "lng", lng);
+                    }}
+                  />
+                </div>
                 {!row.isFamilyEvent && (
                   <div style={{ marginBottom: 16 }}>
                     <span style={lbl}>Priority</span>
