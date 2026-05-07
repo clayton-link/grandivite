@@ -35,7 +35,7 @@ function AddRecipientForm({ onAdd, onCancel }) {
   const set = (k, v) => setF(x => ({ ...x, [k]: v }));
   return (
     <div style={{ backgroundColor: C.greenLight, borderRadius: 10, padding: 16, marginTop: 12 }}>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 12 }}>
+      <div className="admin-3col-grid" style={{ marginBottom: 12 }}>
         <div><span style={lbl}>Name</span><input style={{ ...inp, width: "100%" }} value={f.name} onChange={e => set("name", e.target.value)} placeholder="e.g. Nana" /></div>
         <div><span style={lbl}>Email</span><input style={{ ...inp, width: "100%" }} type="email" value={f.email} onChange={e => set("email", e.target.value)} placeholder="email@example.com" /></div>
         <div><span style={lbl}>Phone</span><input style={{ ...inp, width: "100%" }} value={f.phone} onChange={e => set("phone", e.target.value)} placeholder="18015551234" /></div>
@@ -167,7 +167,8 @@ export default function RecipientsManager({ actorEmail }) {
             {isOpen && (
               <div style={{ marginTop: 16, paddingTop: 16, borderTop: `1px solid ${C.border}` }}>
                 {recs.length > 0 && (
-                  <>
+                  <div className="admin-table-scroll">
+                    <div style={{ minWidth: 500 }}>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 180px 130px 80px 40px", gap: 12, padding: "4px 0 8px", marginBottom: 4 }}>
                       {["Name / Email", "Phone", "", "Can RSVP", ""].map((h, i) => (
                         <span key={i} style={{ fontSize: 10, fontWeight: 700, color: C.muted, letterSpacing: "0.6px", textTransform: "uppercase" }}>{h}</span>
@@ -178,7 +179,8 @@ export default function RecipientsManager({ actorEmail }) {
                         onUpdate={(id, f) => updateRecipient(id, f, g.id)}
                         onDelete={id => deleteRecipient(id, g.id)} />
                     ))}
-                  </>
+                    </div>
+                  </div>
                 )}
                 {recs.length === 0 && <p style={{ color: C.muted, fontSize: 13, marginBottom: 12 }}>No recipients in this group yet.</p>}
 

@@ -155,14 +155,15 @@ export default function CycleManager({ orgId, actorEmail }) {
       {history.length > 0 && (
         <div>
           <h3 style={{ ...serif, fontSize: 18, color: C.text, margin: "24px 0 14px" }}>Past Cycles</h3>
-          <div style={{ backgroundColor: C.white, borderRadius: 16, border: `1px solid ${C.border}`, overflow: "hidden" }}>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 60px 90px 90px 90px auto", padding: "10px 16px", backgroundColor: C.cream, borderBottom: `2px solid ${C.border}`, gap: 12 }}>
+          <div className="admin-table-scroll" style={{ borderRadius: 16, border: `1px solid ${C.border}` }}>
+            <div style={{ minWidth: 520 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 60px 90px 90px 90px auto", padding: "10px 16px", backgroundColor: C.cream, borderBottom: `2px solid ${C.border}`, gap: 12, borderRadius: "16px 16px 0 0" }}>
               {["Cycle", "Events", "Status", "Digest", "Created", ""].map((h, i) => (
                 <span key={i} style={{ fontSize: 10, fontWeight: 700, color: C.muted, letterSpacing: "0.6px", textTransform: "uppercase" }}>{h}</span>
               ))}
             </div>
-            {history.map(c => (
-              <div key={c.id} style={{ display: "grid", gridTemplateColumns: "1fr 60px 90px 90px 90px auto", padding: "12px 16px", borderBottom: `1px solid ${C.border}`, gap: 12, alignItems: "center" }}>
+            {history.map((c, idx) => (
+              <div key={c.id} style={{ display: "grid", gridTemplateColumns: "1fr 60px 90px 90px 90px auto", padding: "12px 16px", borderBottom: idx < history.length - 1 ? `1px solid ${C.border}` : "none", gap: 12, alignItems: "center", backgroundColor: C.white, borderRadius: idx === history.length - 1 ? "0 0 16px 16px" : 0 }}>
                 <span style={{ fontWeight: 700, fontSize: 14, color: C.text }}>{c.month_label}{c.closed_at && <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, color: C.muted, backgroundColor: C.cream, padding: "2px 7px", borderRadius: 10, border: `1px solid ${C.border}` }}>Closed</span>}</span>
                 <span style={{ fontSize: 13, color: C.muted }}>{eventCounts[c.id] || 0}</span>
                 <span style={{ fontSize: 11, fontWeight: 700, color: c.locked ? C.green : C.muted }}>{c.locked ? "🔒 Locked" : "Open"}</span>
@@ -171,6 +172,7 @@ export default function CycleManager({ orgId, actorEmail }) {
                 <span>{!c.closed_at && <button onClick={() => closeCycle(c.id, c.month_label)} style={{ padding: "4px 10px", borderRadius: 6, border: `1px solid ${C.border}`, backgroundColor: "transparent", color: C.muted, fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "'Lato', sans-serif", whiteSpace: "nowrap" }}>📦 Close</button>}</span>
               </div>
             ))}
+            </div>
           </div>
         </div>
       )}

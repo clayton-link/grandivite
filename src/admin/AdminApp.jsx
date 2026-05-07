@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { adminDb } from "./adminDb.js";
 import { AdminC } from "./adminUtils.js";
 
@@ -82,6 +82,13 @@ export default function AdminApp() {
   const [orgSettings, setOrgSettings] = useState(null);
   const [adminPage, setAdminPage]     = useState("overview");
   const [loading, setLoading]         = useState(true);
+  const [isMobile, setIsMobile]       = useState(() => window.innerWidth <= 768);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const navigateTo = useCallback((page) => {
+    setAdminPage(page);
+    setSidebarOpen(false);
+  }, []);
 
   // Fix full-width layout (undo index.css 1126px constraint)
   useEffect(() => {
@@ -91,7 +98,35 @@ export default function AdminApp() {
     link.rel   = "stylesheet";
     link.href  = "https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Lato:wght@300;400;700&display=swap";
     document.head.appendChild(link);
-    return () => { try { document.head.removeChild(link); } catch {} };
+    const style = document.createElement("style");
+    style.id = "admin-responsive";
+    style.textContent = `
+      .admin-quick-grid      { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:28px; }
+      .admin-org-grid        { display:grid; grid-template-columns:1fr 320px; gap:24px; }
+      .admin-detail-grid     { display:grid; grid-template-columns:340px 1fr; gap:24px; align-items:start; }
+      .admin-2col-grid       { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px; }
+      .admin-3col-grid       { display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; }
+      .admin-4col-grid       { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:20px; }
+      .admin-importance-grid { display:grid; grid-template-columns:180px 1fr; gap:12px; align-items:start; }
+      .admin-table-scroll    { overflow-x:auto; -webkit-overflow-scrolling:touch; }
+      @media (max-width:768px) {
+        .admin-quick-grid      { grid-template-columns:1fr 1fr; }
+        .admin-org-grid        { grid-template-columns:1fr; }
+        .admin-detail-grid     { grid-template-columns:1fr; }
+        .admin-2col-grid       { grid-template-columns:1fr; }
+        .admin-3col-grid       { grid-template-columns:1fr; }
+        .admin-4col-grid       { grid-template-columns:1fr 1fr; }
+        .admin-importance-grid { grid-template-columns:1fr; }
+      }
+    `;
+    document.head.appendChild(style);
+    const onResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener("resize", onResize);
+    return () => {
+      try { document.head.removeChild(link); } catch {}
+      try { document.head.removeChild(style); } catch {}
+      window.removeEventListener("resize", onResize);
+    };
   }, []);
 
   useEffect(() => {
@@ -150,24 +185,40 @@ export default function AdminApp() {
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", fontFamily: "'Lato', sans-serif", backgroundColor: C.cream }}>
+      {/* Mobile backdrop */}
+      {isMobile && sidebarOpen && (
+        <div onClick={() => setSidebarOpen(false)} style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.45)", zIndex: 150 }} />
+      )}
+
       {/* Sidebar */}
-      <div style={{ width: SIDEBAR_W, flexShrink: 0, backgroundColor: AdminC.sidebar, display: "flex", flexDirection: "column", position: "fixed", top: 0, left: 0, height: "100vh", zIndex: 100, overflowY: "auto" }}>
-        <div style={{ padding: "20px 16px 16px", borderBottom: `1px solid ${AdminC.sidebarBorder}` }}>
-          <div style={{ ...serif, fontSize: 18, color: C.white, fontWeight: 700, lineHeight: 1.2 }}>
-            {org?.app_emoji || "🌿"} {org?.app_title || org?.name || "Grandivite"}
+      <div style={{
+        width: SIDEBAR_W, flexShrink: 0, backgroundColor: AdminC.sidebar,
+        display: "flex", flexDirection: "column",
+        position: "fixed", top: 0, left: 0, height: "100vh", zIndex: 200, overflowY: "auto",
+        transition: "transform 0.25s ease",
+        transform: isMobile && !sidebarOpen ? `translateX(-${SIDEBAR_W}px)` : "translateX(0)",
+      }}>
+        <div style={{ padding: "20px 16px 16px", borderBottom: `1px solid ${AdminC.sidebarBorder}`, display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
+          <div>
+            <div style={{ ...serif, fontSize: 18, color: C.white, fontWeight: 700, lineHeight: 1.2 }}>
+              {org?.app_emoji || "🌿"} {org?.app_title || org?.name || "Grandivite"}
+            </div>
+            <div style={{ fontSize: 10, color: AdminC.sidebarText, marginTop: 4, fontWeight: 700, letterSpacing: "0.8px" }}>ADMIN DASHBOARD</div>
           </div>
-          <div style={{ fontSize: 10, color: AdminC.sidebarText, marginTop: 4, fontWeight: 700, letterSpacing: "0.8px" }}>ADMIN DASHBOARD</div>
+          {isMobile && (
+            <button onClick={() => setSidebarOpen(false)} style={{ background: "none", border: "none", color: AdminC.sidebarText, fontSize: 20, cursor: "pointer", padding: "0 0 0 8px", lineHeight: 1, marginTop: 2 }}>✕</button>
+          )}
         </div>
 
         <nav style={{ flex: 1, padding: "10px 8px" }}>
           {NAV.map(item => {
             const active = topSection === item.id;
             return (
-              <button key={item.id} onClick={() => setAdminPage(item.id)}
-                style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "9px 12px", borderRadius: 8, border: "none", cursor: "pointer", backgroundColor: active ? AdminC.sidebarActive : "transparent", color: active ? AdminC.sidebarTextActive : AdminC.sidebarText, fontFamily: "'Lato', sans-serif", fontSize: 13, fontWeight: active ? 700 : 400, textAlign: "left", transition: "background-color 0.15s", marginBottom: 2 }}
+              <button key={item.id} onClick={() => navigateTo(item.id)}
+                style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "10px 12px", borderRadius: 8, border: "none", cursor: "pointer", backgroundColor: active ? AdminC.sidebarActive : "transparent", color: active ? AdminC.sidebarTextActive : AdminC.sidebarText, fontFamily: "'Lato', sans-serif", fontSize: 14, fontWeight: active ? 700 : 400, textAlign: "left", transition: "background-color 0.15s", marginBottom: 2 }}
                 onMouseEnter={e => { if (!active) e.currentTarget.style.backgroundColor = AdminC.sidebarHover; }}
                 onMouseLeave={e => { if (!active) e.currentTarget.style.backgroundColor = "transparent"; }}>
-                <span style={{ fontSize: 15 }}>{item.icon}</span>
+                <span style={{ fontSize: 16 }}>{item.icon}</span>
                 {item.label}
               </button>
             );
@@ -182,21 +233,30 @@ export default function AdminApp() {
       </div>
 
       {/* Main content */}
-      <div style={{ marginLeft: SIDEBAR_W, flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
-        <div style={{ backgroundColor: C.white, borderBottom: `1px solid ${C.border}`, padding: "0 28px", height: 56, display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 90, boxShadow: "0 1px 4px rgba(0,0,0,0.05)" }}>
-          <div style={{ fontSize: 13, color: C.muted }}>
-            <span style={{ fontWeight: 700, color: C.text }}>Admin</span>
-            <span> / </span>
-            <span>{pageLabel}</span>
+      <div style={{ marginLeft: isMobile ? 0 : SIDEBAR_W, flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+        <div style={{ backgroundColor: C.white, borderBottom: `1px solid ${C.border}`, padding: "0 16px", height: 56, display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 90, boxShadow: "0 1px 4px rgba(0,0,0,0.05)", gap: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+            {isMobile && (
+              <button onClick={() => setSidebarOpen(true)} style={{ background: "none", border: "none", cursor: "pointer", padding: "6px", display: "flex", flexDirection: "column", gap: 4, flexShrink: 0 }}>
+                <span style={{ display: "block", width: 20, height: 2, backgroundColor: C.text, borderRadius: 1 }} />
+                <span style={{ display: "block", width: 20, height: 2, backgroundColor: C.text, borderRadius: 1 }} />
+                <span style={{ display: "block", width: 20, height: 2, backgroundColor: C.text, borderRadius: 1 }} />
+              </button>
+            )}
+            <div style={{ fontSize: 13, color: C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              <span style={{ fontWeight: 700, color: C.text }}>Admin</span>
+              <span> / </span>
+              <span>{pageLabel}</span>
+            </div>
           </div>
-          <a href="/app" style={{ fontSize: 12, color: C.primary, fontWeight: 700, textDecoration: "none", padding: "6px 14px", border: `1.5px solid ${C.primary}`, borderRadius: 8 }}>← Back to App</a>
+          <a href="/app" style={{ fontSize: 12, color: C.primary, fontWeight: 700, textDecoration: "none", padding: "6px 12px", border: `1.5px solid ${C.primary}`, borderRadius: 8, whiteSpace: "nowrap", flexShrink: 0 }}>← App</a>
         </div>
 
-        <div style={{ flex: 1, padding: "28px 32px 60px" }}>
-          {adminPage === "overview"      && <Overview       orgId={orgId} onNavigate={setAdminPage} />}
+        <div style={{ flex: 1, padding: isMobile ? "20px 16px 60px" : "28px 32px 60px" }}>
+          {adminPage === "overview"      && <Overview       orgId={orgId} onNavigate={navigateTo} />}
           {adminPage === "org"           && <OrgSettings    orgId={orgId} org={org} orgSettings={orgSettings} actorEmail={actorEmail} onSaved={updated => setOrg(o => ({ ...o, ...updated }))} />}
-          {adminPage === "groups"        && <GroupsManager  orgId={orgId} actorEmail={actorEmail} onEditGroup={id => setAdminPage(`group:${id}`)} />}
-          {isGroupDetail                 && <GroupDetail    orgId={orgId} groupId={groupDetailId} actorEmail={actorEmail} onBack={() => setAdminPage("groups")} />}
+          {adminPage === "groups"        && <GroupsManager  orgId={orgId} actorEmail={actorEmail} onEditGroup={id => navigateTo(`group:${id}`)} />}
+          {isGroupDetail                 && <GroupDetail    orgId={orgId} groupId={groupDetailId} actorEmail={actorEmail} onBack={() => navigateTo("groups")} />}
           {adminPage === "recipients"    && <RecipientsManager orgId={orgId} actorEmail={actorEmail} />}
           {adminPage === "members"       && <MembersManager orgId={orgId} actorEmail={actorEmail} />}
           {adminPage === "cycles"        && <CycleManager   orgId={orgId} actorEmail={actorEmail} />}

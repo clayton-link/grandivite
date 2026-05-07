@@ -75,7 +75,7 @@ export default function NotificationSettings({ orgId, orgSettings, actorEmail })
             <span style={{ position: "absolute", top: 3, left: draft.auto_nudge_enabled ? 26 : 4, width: 22, height: 22, borderRadius: "50%", backgroundColor: C.white, transition: "left 0.2s", display: "block", boxShadow: "0 1px 4px rgba(0,0,0,0.2)" }} />
           </button>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+        <div className="admin-2col-grid" style={{ marginBottom: 0 }}>
           <div>
             <span style={lbl}>Nudge Day of Month</span>
             <input style={inp} type="number" min={1} max={28} value={draft.nudge_day_of_month} onChange={e => set("nudge_day_of_month", parseInt(e.target.value) || 1)} />
@@ -95,7 +95,7 @@ export default function NotificationSettings({ orgId, orgSettings, actorEmail })
       {/* Event rules */}
       <div style={card}>
         <h3 style={{ ...serif, fontSize: 17, margin: "0 0 20px" }}>Event Rules</h3>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
+        <div className="admin-3col-grid">
           <div>
             <span style={lbl}>Max Events Per Child</span>
             <input style={inp} type="number" min={1} max={10} value={draft.max_events_per_child} onChange={e => set("max_events_per_child", parseInt(e.target.value) || 1)} />
@@ -118,7 +118,7 @@ export default function NotificationSettings({ orgId, orgSettings, actorEmail })
         {[3, 2, 1].map(level => (
           <div key={level} style={{ borderLeft: `4px solid ${IMPORTANCE_COLORS[level]}`, paddingLeft: 16, marginBottom: 20 }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: IMPORTANCE_COLORS[level], marginBottom: 10 }}>{IMPORTANCE_NAMES[level]}</div>
-            <div style={{ display: "grid", gridTemplateColumns: "180px 1fr", gap: 12, alignItems: "start" }}>
+            <div className="admin-importance-grid">
               <div>
                 <span style={lbl}>Label</span>
                 <input style={inp} value={draft[`importance_${level}_label`]} onChange={e => set(`importance_${level}_label`, e.target.value)} />

@@ -79,7 +79,7 @@ export default function MembersManager({ actorEmail }) {
       </div>
 
       {/* Role guide */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 20 }}>
+      <div className="admin-4col-grid">
         {Object.entries(ROLE_DESCRIPTIONS).map(([role, desc]) => (
           <div key={role} style={{ backgroundColor: C.white, border: `1px solid ${C.border}`, borderRadius: 10, padding: "12px 14px" }}>
             <span style={roleBadgeStyle(role)}>{role}</span>
@@ -88,9 +88,10 @@ export default function MembersManager({ actorEmail }) {
         ))}
       </div>
 
-      <div style={card}>
+      <div className="admin-table-scroll" style={{ borderRadius: 16, boxShadow: "0 2px 20px rgba(44,74,62,0.07)", border: `1px solid ${C.border}`, marginBottom: 16 }}>
+        <div style={{ minWidth: 520 }}>
         {/* Header */}
-        <div style={{ display: "grid", gridTemplateColumns: COLS, padding: "10px 16px", backgroundColor: C.cream, borderBottom: `2px solid ${C.border}`, gap: 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: COLS, padding: "10px 16px", backgroundColor: C.cream, borderBottom: `2px solid ${C.border}`, gap: 12, borderRadius: "16px 16px 0 0" }}>
           {["Name / Email", "Role", "Joined", "Active", ""].map((h, i) => (
             <span key={i} style={{ fontSize: 10, fontWeight: 700, color: C.muted, letterSpacing: "0.6px", textTransform: "uppercase" }}>{h}</span>
           ))}
@@ -112,12 +113,12 @@ export default function MembersManager({ actorEmail }) {
 
         {/* Member rows */}
         {members.length === 0 && !showAdd && (
-          <div style={{ padding: "40px 24px", textAlign: "center", color: C.muted }}>No admin members yet.</div>
+          <div style={{ padding: "40px 24px", textAlign: "center", color: C.muted, backgroundColor: C.white, borderRadius: "0 0 16px 16px" }}>No admin members yet.</div>
         )}
-        {members.map(m => {
+        {members.map((m, idx) => {
           const isYou = m.email === actorEmail;
           return (
-            <div key={m.id} style={{ display: "grid", gridTemplateColumns: COLS, padding: "13px 16px", borderBottom: `1px solid ${C.border}`, gap: 12, alignItems: "center", backgroundColor: hoverRow === m.id ? "#F9F5F0" : C.white, opacity: m.is_active ? 1 : 0.5 }}
+            <div key={m.id} style={{ display: "grid", gridTemplateColumns: COLS, padding: "13px 16px", borderBottom: idx < members.length - 1 ? `1px solid ${C.border}` : "none", gap: 12, alignItems: "center", backgroundColor: hoverRow === m.id ? "#F9F5F0" : C.white, opacity: m.is_active ? 1 : 0.5, borderRadius: idx === members.length - 1 ? "0 0 16px 16px" : 0 }}
               onMouseEnter={() => setHoverRow(m.id)} onMouseLeave={() => setHoverRow(null)}>
               <div>
                 <div style={{ fontWeight: 700, fontSize: 13, color: C.text }}>{m.display_name || m.email}</div>
@@ -141,6 +142,7 @@ export default function MembersManager({ actorEmail }) {
             </div>
           );
         })}
+        </div>
       </div>
 
       <div style={{ marginTop: 16, padding: "12px 16px", backgroundColor: C.terraLight, borderRadius: 10, border: `1px solid #F0B898`, fontSize: 12, color: "#8B4513" }}>

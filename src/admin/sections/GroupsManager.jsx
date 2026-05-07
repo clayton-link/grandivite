@@ -100,9 +100,10 @@ export default function GroupsManager({ orgId, actorEmail, onEditGroup }) {
         </button>
       </div>
 
-      <div style={card}>
+      <div className="admin-table-scroll" style={{ borderRadius: 16, boxShadow: "0 2px 20px rgba(44,74,62,0.07)", border: `1px solid ${C.border}`, marginBottom: 16 }}>
+        <div style={{ minWidth: 560 }}>
         {/* Table header */}
-        <div style={{ display: "grid", gridTemplateColumns: COLS, padding: "10px 16px", backgroundColor: C.cream, borderBottom: `2px solid ${C.border}`, gap: 12, alignItems: "center" }}>
+        <div style={{ display: "grid", gridTemplateColumns: COLS, padding: "10px 16px", backgroundColor: C.cream, borderBottom: `2px solid ${C.border}`, gap: 12, alignItems: "center", borderRadius: "16px 16px 0 0" }}>
           {["", "Name", "Members", "Children", "Phone", "Active", ""].map((h, i) => (
             <span key={i} style={{ fontSize: 10, fontWeight: 700, color: C.muted, letterSpacing: "0.6px", textTransform: "uppercase" }}>{h}</span>
           ))}
@@ -113,13 +114,13 @@ export default function GroupsManager({ orgId, actorEmail, onEditGroup }) {
 
         {/* Group rows */}
         {groups.length === 0 && !showAdd && (
-          <div style={{ padding: "40px 24px", textAlign: "center", color: C.muted }}>
+          <div style={{ padding: "40px 24px", textAlign: "center", color: C.muted, backgroundColor: C.white, borderRadius: "0 0 16px 16px" }}>
             No groups yet. Click "Add Group" to create the first one.
           </div>
         )}
-        {groups.map(g => (
+        {groups.map((g, idx) => (
           <div key={g.id}
-            style={{ display: "grid", gridTemplateColumns: COLS, padding: "14px 16px", borderBottom: `1px solid ${C.border}`, gap: 12, alignItems: "center", backgroundColor: hoverRow === g.id ? "#F9F5F0" : C.white, cursor: "pointer", opacity: g.active ? 1 : 0.55 }}
+            style={{ display: "grid", gridTemplateColumns: COLS, padding: "14px 16px", borderBottom: idx < groups.length - 1 ? `1px solid ${C.border}` : "none", gap: 12, alignItems: "center", backgroundColor: hoverRow === g.id ? "#F9F5F0" : C.white, cursor: "pointer", opacity: g.active ? 1 : 0.55, borderRadius: idx === groups.length - 1 ? "0 0 16px 16px" : 0 }}
             onMouseEnter={() => setHoverRow(g.id)} onMouseLeave={() => setHoverRow(null)}
             onClick={() => onEditGroup(g.id)}>
             <ColorSwatch color={g.color} />
@@ -136,6 +137,7 @@ export default function GroupsManager({ orgId, actorEmail, onEditGroup }) {
             <span style={{ fontSize: 12, color: C.green, fontWeight: 700 }}>Edit →</span>
           </div>
         ))}
+        </div>
       </div>
 
       <p style={{ fontSize: 12, color: C.muted }}>Click any row to edit group details, members, and children.</p>

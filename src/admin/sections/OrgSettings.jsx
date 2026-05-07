@@ -65,13 +65,13 @@ export default function OrgSettings({ orgId, org, orgSettings, actorEmail, onSav
       <h2 style={{ ...serif, fontSize: 26, color: C.green, margin: "0 0 4px" }}>Organization Settings</h2>
       <p style={{ color: C.muted, margin: "0 0 28px", fontSize: 14 }}>Configure your organization's identity, branding, and default copy.</p>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 24 }}>
+      <div className="admin-org-grid">
         {/* Left — form */}
         <div>
           {/* Identity */}
           <div style={card}>
             <h3 style={{ ...serif, fontSize: 17, margin: "0 0 20px", color: C.text }}>Identity</h3>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
+            <div className="admin-2col-grid">
               <div>
                 <span style={lbl}>Organization Name</span>
                 <input style={inp} value={draft.name} onChange={e => set("name", e.target.value)} placeholder="The Henderson Family" />

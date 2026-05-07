@@ -79,7 +79,7 @@ export default function Overview({ orgId, onNavigate }) {
 
       {/* Quick links */}
       <h3 style={{ ...serif, fontSize: 18, color: C.text, margin: "0 0 14px" }}>Quick Access</h3>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 28 }}>
+      <div className="admin-quick-grid">
         {QUICK_LINKS.map(l => (
           <button key={l.page} onClick={() => onNavigate(l.page)} style={{ ...card, marginBottom: 0, textAlign: "left", border: "none", cursor: "pointer", padding: "18px 20px", transition: "box-shadow 0.15s" }}
             onMouseEnter={e => e.currentTarget.style.boxShadow = "0 4px 24px rgba(44,74,62,0.15)"}

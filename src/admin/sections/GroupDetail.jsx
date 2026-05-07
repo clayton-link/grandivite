@@ -118,7 +118,7 @@ export default function GroupDetail({ orgId, groupId, actorEmail, onBack }) {
         <h2 style={{ ...serif, fontSize: 24, color: C.green, margin: 0 }}>{group.name}</h2>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "340px 1fr", gap: 24, alignItems: "start" }}>
+      <div className="admin-detail-grid">
         {/* Left — group meta */}
         <div>
           <div style={card}>

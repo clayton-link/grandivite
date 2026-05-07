@@ -73,15 +73,16 @@ export default function AuditLog({ orgId }) {
       )}
 
       {visible.length > 0 && (
-        <div style={{ backgroundColor: C.white, borderRadius: 16, border: `1px solid ${C.border}`, overflow: "hidden", boxShadow: "0 2px 20px rgba(44,74,62,0.07)" }}>
+        <div className="admin-table-scroll" style={{ borderRadius: 16, border: `1px solid ${C.border}`, boxShadow: "0 2px 20px rgba(44,74,62,0.07)" }}>
+          <div style={{ minWidth: 580 }}>
           {/* Header */}
-          <div style={{ display: "grid", gridTemplateColumns: "150px 1fr 120px 100px 80px", padding: "10px 16px", backgroundColor: C.cream, borderBottom: `2px solid ${C.border}`, gap: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "150px 1fr 120px 100px 80px", padding: "10px 16px", backgroundColor: C.cream, borderBottom: `2px solid ${C.border}`, gap: 12, borderRadius: "16px 16px 0 0" }}>
             {["Time", "Actor", "Action", "Target", ""].map((h, i) => (
               <span key={i} style={{ fontSize: 10, fontWeight: 700, color: C.muted, letterSpacing: "0.6px", textTransform: "uppercase" }}>{h}</span>
             ))}
           </div>
           {visible.map((e, i) => (
-            <div key={e.id} style={{ display: "grid", gridTemplateColumns: "150px 1fr 120px 100px 80px", padding: "11px 16px", borderBottom: i < visible.length - 1 ? `1px solid ${C.border}` : "none", gap: 12, alignItems: "center", backgroundColor: i % 2 === 0 ? C.white : "#FDFAF7" }}>
+            <div key={e.id} style={{ display: "grid", gridTemplateColumns: "150px 1fr 120px 100px 80px", padding: "11px 16px", borderBottom: i < visible.length - 1 ? `1px solid ${C.border}` : "none", gap: 12, alignItems: "center", backgroundColor: i % 2 === 0 ? C.white : "#FDFAF7", borderRadius: i === visible.length - 1 ? "0 0 16px 16px" : 0 }}>
               <span style={{ fontSize: 11, color: C.muted, whiteSpace: "nowrap" }}>{fmtTime(e.created_at)}</span>
               <span style={{ fontSize: 13, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.actor_email}</span>
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -92,6 +93,7 @@ export default function AuditLog({ orgId }) {
               <span style={{ fontSize: 11, color: C.muted, overflow: "hidden", textOverflow: "ellipsis" }}>{e.target_id || "—"}</span>
             </div>
           ))}
+          </div>
         </div>
       )}
 
