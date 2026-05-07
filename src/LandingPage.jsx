@@ -225,6 +225,8 @@ export default function LandingPage() {
         <span style={{ ...serif, color: C.primary, fontWeight: 700, fontSize: 14 }}>Grandivite</span>
         <span>·</span>
         <span>Keep your family connected around the moments that matter.</span>
+        <span>·</span>
+        <a href="/privacy" style={{ color: C.muted, textDecoration: "none" }}>Privacy Policy</a>
       </footer>
     </div>
   );
@@ -302,6 +304,7 @@ function SignInCard({ onBack }) {
         <button onClick={onBack} style={{ background: "none", border: "none", color: C.muted, fontSize: 13, cursor: "pointer", marginTop: 20, textDecoration: "underline" }}>
           ← Back to home
         </button>
+        <a href="/privacy" style={{ display: "block", color: C.muted, fontSize: 11, marginTop: 10, textDecoration: "none", opacity: 0.7 }}>Privacy Policy</a>
       </div>
     </div>
   );
