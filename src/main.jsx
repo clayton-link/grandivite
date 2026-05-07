@@ -5,6 +5,7 @@ import App from './App.jsx'
 import AdminApp from './admin/AdminApp.jsx'
 import LandingPage from './LandingPage.jsx'
 import OnboardingPage from './OnboardingPage.jsx'
+import PrivacyPolicy from './PrivacyPolicy.jsx'
 
 const path = window.location.pathname
 
@@ -15,6 +16,8 @@ if (path.startsWith('/admin')) {
   Root = App
 } else if (path.startsWith('/onboarding')) {
   Root = OnboardingPage
+} else if (path.startsWith('/privacy')) {
+  Root = PrivacyPolicy
 } else {
   // '/' and '/signup' → landing page (handles auth + signup inline)
   Root = LandingPage
