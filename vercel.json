@@ -5,7 +5,8 @@
     { "source": "/app/(.*)",   "destination": "/index.html" },
     { "source": "/app",        "destination": "/index.html" },
     { "source": "/onboarding", "destination": "/index.html" },
-    { "source": "/signup",     "destination": "/index.html" }
+    { "source": "/signup",     "destination": "/index.html" },
+    { "source": "/privacy",    "destination": "/index.html" }
   ],
   "crons": [
     {
