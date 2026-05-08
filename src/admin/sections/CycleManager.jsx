@@ -166,7 +166,7 @@ export default function CycleManager({ orgId, actorEmail }) {
               <div key={c.id} style={{ display: "grid", gridTemplateColumns: "1fr 60px 90px 90px 90px auto", padding: "12px 16px", borderBottom: idx < history.length - 1 ? `1px solid ${C.border}` : "none", gap: 12, alignItems: "center", backgroundColor: C.white, borderRadius: idx === history.length - 1 ? "0 0 16px 16px" : 0 }}>
                 <span style={{ fontWeight: 700, fontSize: 14, color: C.text }}>{c.month_label}{c.closed_at && <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, color: C.muted, backgroundColor: C.cream, padding: "2px 7px", borderRadius: 10, border: `1px solid ${C.border}` }}>Closed</span>}</span>
                 <span style={{ fontSize: 13, color: C.muted }}>{eventCounts[c.id] || 0}</span>
-                <span style={{ fontSize: 11, fontWeight: 700, color: c.locked ? C.green : C.muted }}>{c.locked ? "🔒 Locked" : "Open"}</span>
+                <span style={{ fontSize: 11, fontWeight: 700, color: c.closed_at ? C.muted : c.locked ? C.green : C.muted }}>{c.closed_at ? "📦 Closed" : c.locked ? "🔒 Locked" : "Open"}</span>
                 <span style={{ fontSize: 11, color: c.digest_sent ? C.green : C.muted, fontWeight: 700 }}>{c.digest_sent ? "✓ Sent" : "—"}</span>
                 <span style={{ fontSize: 11, color: C.muted }}>{fmtTime(c.created_at)}</span>
                 <span>{!c.closed_at && <button onClick={() => closeCycle(c.id, c.month_label)} style={{ padding: "4px 10px", borderRadius: 6, border: `1px solid ${C.border}`, backgroundColor: "transparent", color: C.muted, fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "'Lato', sans-serif", whiteSpace: "nowrap" }}>📦 Close</button>}</span>

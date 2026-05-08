@@ -77,7 +77,7 @@ export default function AuditLog({ orgId }) {
           <div style={{ minWidth: 580 }}>
           {/* Header */}
           <div style={{ display: "grid", gridTemplateColumns: "150px 1fr 120px 100px 80px", padding: "10px 16px", backgroundColor: C.cream, borderBottom: `2px solid ${C.border}`, gap: 12, borderRadius: "16px 16px 0 0" }}>
-            {["Time", "Actor", "Action", "Target", ""].map((h, i) => (
+            {["Time", "Actor", "Action", "Target", "Ref"].map((h, i) => (
               <span key={i} style={{ fontSize: 10, fontWeight: 700, color: C.muted, letterSpacing: "0.6px", textTransform: "uppercase" }}>{h}</span>
             ))}
           </div>
